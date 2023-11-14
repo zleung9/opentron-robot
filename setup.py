@@ -8,7 +8,8 @@ setup(
     packages=find_packages(),
     python_requires=">=3.8",
     install_requires=[
-        # to be added
+        "paramiko",
+        "scp",
     ],
     entry_points={ # create scripts and add to sys.PATH
         'console_scripts': [
