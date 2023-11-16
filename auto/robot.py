@@ -12,30 +12,30 @@ SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
 class Robot(SSHClient):
 
 
-    def __init__(self, name, root_dir="/data/user_storage"):
+    def __init__(self, name, root_dir="/data/user_storage", connect=False):
         super().__init__()
         self.root_dir = root_dir
         self.name = name
         self.hostname = None
         self.scp = None
         self.logger = None
-        self.connect_raw = self.connect # to override `connect` method
 
 
     def create_logger(self, jobname, jobdir, append=False, simple_fmt=True):
-            self.logger = create_logger(
-                logger_name=jobname,
-                log_path=os.path.join(jobdir, jobname+".log"),
-                append=append,
-                simple_fmt=simple_fmt
-
-            )
+        self.logger = create_logger(
+            logger_name=jobname,
+            log_path=os.path.join(jobdir, jobname+".log"),
+            append=append,
+            simple_fmt=simple_fmt
+        )
 
 
     def connect(self, hostname=None, key_path=None, username="root", passphrase=""):
+        """Override the `connect` method in original `SSHClient` class.
+        """
         self.hostname = hostname
         self.set_missing_host_key_policy(paramiko.client.WarningPolicy)
-        self.connect_raw(
+        super().connect(
             hostname=hostname, 
             username=username, 
             passphrase=passphrase, 
@@ -53,23 +53,24 @@ class Robot(SSHClient):
     def execute(self, script_path, log=True):
         """Let the Robot execute a script stored on it.
         """
+        # pre-execution logging
         if log: 
-             assert self.logger is not None, "Create a logger first!"
-        script_name = os.path.basename(script_path)
-        # logging 
-        if log:
-             self.logger.info(f'Executing {script_name}') 
+            try:
+                assert self.logger is not None, "Logger doesn't exist, log is muted."
+                self.logger.info(f'Executing {os.path.basename(script_path)}')
+            except AssertionError:
+                log = False
         # Execution
         _ = self.exec_command("export RUNNING_ON_PI=1", get_pty=True)
         _, stdout, stderr = self.exec_command(f"python {script_path}", get_pty=True)
-        # logging
+        # post-execution logging
         if log:
             for line in stdout:
                 self.logger.info(line.rstrip())
             for line in stderr:
-                 self.logger.info("ERR>"+line.rstrip())
-
-        return stdout, stderr
+                self.logger.info("ERR>"+line.rstrip())
+        # need to return output to be used as input for succeeding scripts
+        return stdout, stderr 
 
 
 if __name__ == "__main__":
