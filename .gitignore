@@ -25,3 +25,5 @@ var/
 *.idea
 temp/
 data/
+scripts/
+.ssh
