@@ -5,3 +5,9 @@ def generate_output():
 if __name__ == "__main__":
     print("Hello!")
     print(generate_output())
+    while True:
+        a = input()
+        print(a, a)
+        if a == "0":
+            break
+    print("end")
