@@ -1,0 +1,185 @@
+{
+    "ordering": [
+        [
+            "A1",
+            "B1",
+            "C1"
+        ],
+        [
+            "A2",
+            "B2",
+            "C2"
+        ],
+        [
+            "A3",
+            "B3",
+            "C3"
+        ],
+        [
+            "A4",
+            "B4",
+            "C4"
+        ]
+    ],
+    "brand": {
+        "brand": "Automat",
+        "brandId": []
+    },
+    "metadata": {
+        "displayName": "Automat_3x4_Al_wellplate_50mL",
+        "displayCategory": "wellPlate",
+        "displayVolumeUnits": "µL",
+        "tags": []
+    },
+    "dimensions": {
+        "xDimension": 127.9,
+        "yDimension": 85.5,
+        "zDimension": 102.53
+    },
+    "wells": {
+        "A1": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 22,
+            "y": 70.5,
+            "z": 6.51
+        },
+        "B1": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 22,
+            "y": 43,
+            "z": 6.51
+        },
+        "C1": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 22,
+            "y": 15.5,
+            "z": 6.51
+        },
+        "A2": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 49.5,
+            "y": 70.5,
+            "z": 6.51
+        },
+        "B2": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 49.5,
+            "y": 43,
+            "z": 6.51
+        },
+        "C2": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 49.5,
+            "y": 15.5,
+            "z": 6.51
+        },
+        "A3": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 77,
+            "y": 70.5,
+            "z": 6.51
+        },
+        "B3": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 77,
+            "y": 43,
+            "z": 6.51
+        },
+        "C3": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 77,
+            "y": 15.5,
+            "z": 6.51
+        },
+        "A4": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 104.5,
+            "y": 70.5,
+            "z": 6.51
+        },
+        "B4": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 104.5,
+            "y": 43,
+            "z": 6.51
+        },
+        "C4": {
+            "depth": 96.02,
+            "totalLiquidVolume": 50000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 104.5,
+            "y": 15.5,
+            "z": 6.51
+        }
+    },
+    "groups": [
+        {
+            "metadata": {
+                "wellBottomShape": "flat"
+            },
+            "wells": [
+                "A1",
+                "B1",
+                "C1",
+                "A2",
+                "B2",
+                "C2",
+                "A3",
+                "B3",
+                "C3",
+                "A4",
+                "B4",
+                "C4"
+            ]
+        }
+    ],
+    "parameters": {
+        "format": "irregular",
+        "quirks": [],
+        "isTiprack": false,
+        "isMagneticModuleCompatible": false,
+        "loadName": "automat_3x4_al_wellplate_50ml"
+    },
+    "namespace": "custom_beta",
+    "version": 1,
+    "schemaVersion": 2,
+    "cornerOffsetFromSlot": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    }
+}

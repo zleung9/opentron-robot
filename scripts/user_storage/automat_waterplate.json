@@ -1,0 +1,71 @@
+{
+    "ordering": [
+        [
+            "A1"   
+        ],
+        [
+            "A2"
+        ]
+    ],
+    "brand": {
+        "brand": "Automat",
+        "brandId": []
+    },
+    "metadata": {
+        "displayName": "automat_water_plate",
+        "displayCategory": "wellPlate",
+        "displayVolumeUnits": "µL",
+        "tags": []
+    },
+    "dimensions": {
+        "xDimension": 127.9,
+        "yDimension": 85.5,
+        "zDimension": 95.67
+    },
+    "wells": {
+        "A1": {
+            "depth": 93.9,
+            "totalLiquidVolume": 200000,
+            "shape": "circular",
+            "diameter": 80,
+            "x": 42,
+            "y": 32.75,
+            "z": 1.77
+        },
+        "A2": {
+            "depth": 93.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 49,
+            "y": 57.6,
+            "z": 1.77
+        }
+    },
+    "groups": [
+        {
+            "metadata": {
+                "wellBottomShape": "flat"
+            },
+            "wells": [
+                "A1",
+                "A2"
+            ]
+        }
+    ],
+    "parameters": {
+        "format": "irregular",
+        "quirks": [],
+        "isTiprack": false,
+        "isMagneticModuleCompatible": false,
+        "loadName": "automat_water_plate"
+    },
+    "namespace": "custom_beta",
+    "version": 1,
+    "schemaVersion": 2,
+    "cornerOffsetFromSlot": {
+        "x": 0,
+        "y": -41,
+        "z": 0
+    }
+}

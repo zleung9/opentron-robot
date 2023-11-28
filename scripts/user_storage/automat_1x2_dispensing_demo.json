@@ -1,0 +1,71 @@
+{
+    "ordering": [
+        [
+            "A1"
+        ],
+        [
+            "A2"
+        ]
+    ],
+    "brand": {
+        "brand": "Automat",
+        "brandId": []
+    },
+    "metadata": {
+        "displayName": "Automat_1X2_Dispensing_Demo",
+        "displayCategory": "wellPlate",
+        "displayVolumeUnits": "µL",
+        "tags": []
+    },
+    "dimensions": {
+        "xDimension": 127,
+        "yDimension": 85,
+        "zDimension": 95.4
+    },
+    "wells": {
+        "A1": {
+            "depth": 90,
+            "totalLiquidVolume": 100000,
+            "shape": "circular",
+            "diameter": 60,
+            "x": 32.3,
+            "y": 42,
+            "z": 3.4
+        },
+        "A2": {
+            "depth": 90,
+            "totalLiquidVolume": 100000,
+            "shape": "circular",
+            "diameter": 60,
+            "x": 94.8,
+            "y": 42,
+            "z": 3.4
+        }
+    },
+    "groups": [
+        {
+            "metadata": {
+                "wellBottomShape": "flat"
+            },
+            "wells": [
+                "A1",
+                "A2"
+            ]
+        }
+    ],
+    "parameters": {
+        "format": "irregular",
+        "quirks": [],
+        "isTiprack": false,
+        "isMagneticModuleCompatible": false,
+        "loadName": "automat_1x2_dispensing_demo"
+    },
+    "namespace": "custom_beta",
+    "version": 1,
+    "schemaVersion": 2,
+    "cornerOffsetFromSlot": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    }
+}
