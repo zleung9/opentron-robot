@@ -80,8 +80,26 @@ class Robot(SSHClient):
         self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="download")
 
 
-    def execute(self, filename, log=True, mode="python"):
+    def execute(self, filename, log=False, mode="python"):
         """Let the Robot execute a script stored on it.
+        Parameters
+        ----------
+        filename : str
+            The (python) filename to be executed. The file resides in `self.work_dir`.
+        log : bool
+            If `True` write the output/error messages into the log file also. Default `False`.
+        mode : str
+            The type of command to execute. There are a few options:
+                "python": python script
+                "shell": linux shell command
+                "ot2": ot2 script (which is written in python)
+        
+        Returns
+        -------
+        stdin : 
+        stdout : 
+        stderr :
+
         """
         # pre-execution logging
         if log: 
@@ -108,8 +126,7 @@ class Robot(SSHClient):
                 capture_output=True, # capture stdout and stderr
                 text=True, # capture output as str instead of bytes
             )
-            stdout = result.stdout
-            stderr = result.stderr
+            stdin, stdout, stderr = "", result.stdout, result.stderr
         else: # run script on a remote computer through ssh connection
             _ = self.exec_command("export RUNNING_ON_PI=1", get_pty=True)
             stdin, stdout, stderr = self.exec_command(" ".join(command), get_pty=True)
