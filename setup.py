@@ -8,8 +8,9 @@ setup(
     packages=find_packages(),
     python_requires=">=3.8",
     install_requires=[
-        "paramiko",
+        "paramiko==2.8.1", # higher version yields misleading exception about RSA keys.
         "scp",
+        "notebook",
     ],
     entry_points={ # create scripts and add to sys.PATH
         'console_scripts': [
