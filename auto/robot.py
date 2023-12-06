@@ -13,7 +13,7 @@ LOCAL_SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
 class Robot(SSHClient):
 
 
-    def __init__(self, name):
+    def __init__(self, name, execution_mode="python"):
         super().__init__()
         self.name = name
         self.hostname = None
@@ -21,7 +21,7 @@ class Robot(SSHClient):
         self.logger = None
         self.local = True # by default this Robot is local
         self.work_dir = LOCAL_SCRIPTS_DIR
-
+        self.mode = execution_mode
 
     def create_logger(self, jobname, append=False, simple_fmt=True):
         self.logger = create_logger(
@@ -32,14 +32,15 @@ class Robot(SSHClient):
         )
 
 
-    def connect(self, hostname=None, key_path=None, username="root", passphrase=""):
+    def connect(self, hostname=None, port=22, key_path=None, username="root", passphrase=""):
         """Override the `connect` method in original `SSHClient` class.
         """
         self.hostname = hostname
         self.set_missing_host_key_policy(paramiko.client.WarningPolicy)
         try:
             super().connect(
-                hostname=hostname, 
+                hostname=hostname,
+                port=port,
                 username=username, 
                 passphrase=passphrase, 
                 key_filename=key_path
@@ -72,15 +73,12 @@ class Robot(SSHClient):
             )
 
 
-    def upload(self, filename, local_path=None, remote_path=None):
-        self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="upload")
-    
-    
-    def download(self, filename, local_path=None, remote_path=None):
-        self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="download")
+    def load(self, filenames, local_path=None, remote_path=None):
+        for filename in filenames:
+            self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="upload")
 
 
-    def execute(self, filename, log=False, mode="python"):
+    def execute(self, filename, log=False, mode=None):
         """Let the Robot execute a script stored on it.
         Parameters
         ----------
@@ -96,9 +94,8 @@ class Robot(SSHClient):
         
         Returns
         -------
-        stdin : 
-        stdout : 
-        stderr :
+        stdout : Standard output of the script.
+        stderr : Standard error message of the script.
 
         """
         # pre-execution logging
@@ -112,6 +109,8 @@ class Robot(SSHClient):
         script_path = os.path.join(self.work_dir, filename)
         
         # define the command according to mode (python, shell, or ot2, etc.)
+        if mode is None:
+            mode = self.mode
         if mode == "python":
             command = ["python", script_path]
         elif mode == "shell":
@@ -126,12 +125,16 @@ class Robot(SSHClient):
                 capture_output=True, # capture stdout and stderr
                 text=True, # capture output as str instead of bytes
             )
-            stdin, stdout, stderr = "", result.stdout, result.stderr
+            stdout, stderr = result.stdout, result.stderr
         else: # run script on a remote computer through ssh connection
-            _ = self.exec_command("export RUNNING_ON_PI=1", get_pty=True)
-            stdin, stdout, stderr = self.exec_command(" ".join(command), get_pty=True)
-            # stdout = stdout.read().decode() # read text from ChannelFile object
-            # stderr = stderr.read().decode() # read text from ChannelFile object
+            # _ = self.exec_command("export RUNNING_ON_PI=1", get_pty=True)
+            # _, stdout, stderr = self.exec_command(" ".join(command), get_pty=True)
+            _, stdout, stderr = self.exec_command(
+                f"export RUNNING_ON_PI=1; {' '.join(command)}", 
+                get_pty=True
+            )
+            stdout = stdout.read().decode() # read text from ChannelFile object
+            stderr = stderr.read().decode() # read text from ChannelFile object
         
         # post-execution logging
         if log:
@@ -141,7 +144,7 @@ class Robot(SSHClient):
                 self.logger.info("ERR>"+line.rstrip())
 
         # need to return output to be used as input for succeeding scripts
-        return stdin, stdout, stderr 
+        return stdout, stderr 
 
 
 if __name__ == "__main__":
