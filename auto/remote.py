@@ -10,8 +10,14 @@ ROOT_DIR = os.path.dirname(PACKAGE_DIR)
 LOCAL_SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
 
 
-class Robot(SSHClient):
-
+class RemoteStation(SSHClient):
+    """The class handles the communication between the centralized control computer and remote 
+    computers such as Opentrons, Chemspeed or any other computer. 
+    It can perform a variety of operations through SSH, operations such as remote command execution, 
+    file/data transfer, data retrieval and management.
+    The purpose of this class is to enable convenient design of automated experiment involving
+    different computers and devices.
+    """
 
     def __init__(self, name, execution_mode="python"):
         super().__init__()
