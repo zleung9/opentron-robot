@@ -8,7 +8,7 @@ from auto.utils.logger import create_logger
 PACKAGE_DIR = os.path.dirname(__file__)
 ROOT_DIR = os.path.dirname(PACKAGE_DIR)
 LOCAL_SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
-
+REMOTE_SCRIPTS_DIR = '/data/user_storage/'
 
 class RemoteStation(SSHClient):
     """The class handles the communication between the centralized control computer and remote 
@@ -25,8 +25,8 @@ class RemoteStation(SSHClient):
         self.hostname = None
         self.scp = None
         self.logger = None
-        self.local = True # by default this Robot is local
         self.work_dir = LOCAL_SCRIPTS_DIR
+        self.remote_root_dir = REMOTE_SCRIPTS_DIR
         self.mode = execution_mode
 
     def create_logger(self, jobname, append=False, simple_fmt=True):
@@ -55,7 +55,6 @@ class RemoteStation(SSHClient):
             raise
         else:
             self.work_dir = '/data/user_storage/'
-            self.local = False # now it is a remote Robot
 
 
     def transfer(self, filename, local_path=None, remote_path=None, mode="upload"):
@@ -65,17 +64,19 @@ class RemoteStation(SSHClient):
         if local_path is None:
             local_path = LOCAL_SCRIPTS_DIR
         if remote_path is None:
-            remote_path = self.work_dir
+            remote_path = self.remote_root_dir
         self.scp = SCPClient(self.get_transport())
         if mode == "upload":
             self.scp.put(
                 os.path.join(local_path, filename), 
-                remote_path=remote_path
+                remote_path=remote_path,
+                recursive=True
             )
         else:
             self.scp.get(
                 os.path.join(remote_path, filename),
-                local_path=local_path
+                local_path=local_path,
+                recursive=True
             )
 
 
@@ -84,7 +85,7 @@ class RemoteStation(SSHClient):
             self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="upload")
 
 
-    def execute(self, filename, log=False, mode=None):
+    def execute(self, filename:str, log:bool=False, mode:str="")-> None:
         """Let the Robot execute a script stored on it.
         Parameters
         ----------
@@ -112,46 +113,36 @@ class RemoteStation(SSHClient):
             except AssertionError:
                 log = False
         
-        script_path = os.path.join(self.work_dir, filename)
+        # script_path = os.path.join(self.work_dir, filename)
         
         # define the command according to mode (python, shell, or ot2, etc.)
         if mode is None:
             mode = self.mode
         if mode == "python":
-            command = ["python", script_path]
+            command = ["python", filename]
         elif mode == "shell":
-            command = ["bash", script_path]
+            command = ["bash", filename]
         elif mode == "ot2":
-            command = ["opentrons_execute", script_path]
+            command = ["opentrons_execute", filename]
+        else:
+            print("Mode can only be one of: python, shell, ot2")
+            raise
         
         # Execution
-        if self.local: # run the script locally without connection to remote computer
-            result = subprocess.run(
-                command,
-                capture_output=True, # capture stdout and stderr
-                text=True, # capture output as str instead of bytes
-            )
-            stdout, stderr = result.stdout, result.stderr
-        else: # run script on a remote computer through ssh connection
-            # _ = self.exec_command("export RUNNING_ON_PI=1", get_pty=True)
-            # _, stdout, stderr = self.exec_command(" ".join(command), get_pty=True)
-            _, stdout, stderr = self.exec_command(
-                f"export RUNNING_ON_PI=1; {' '.join(command)}", 
-                get_pty=True
-            )
-            stdout = stdout.read().decode() # read text from ChannelFile object
-            stderr = stderr.read().decode() # read text from ChannelFile object
-        
+        _, stdout, _ = self.exec_command(
+            f"cd {self.work_dir}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
+            get_pty=True
+        )
+        stdout = stdout.read().decode() # read text from ChannelFile object
+
         # post-execution logging
         if log:
-            for line in stdout.split("\n"):
+            for line in stdout:
+                print(line.rstrip())
                 self.logger.info(line.rstrip())
-            for line in stderr.split("\n"):
-                self.logger.info("ERR>"+line.rstrip())
 
         # need to return output to be used as input for succeeding scripts
-        return stdout, stderr 
-
+        return stdout
 
 if __name__ == "__main__":
     print(__file__)
