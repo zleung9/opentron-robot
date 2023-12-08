@@ -85,7 +85,7 @@ class RemoteStation(SSHClient):
             self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="upload")
 
 
-    def execute(self, filename:str, log:bool=False, mode:str="")-> None:
+    def execute(self, filename:str, log:bool=False, mode:str="") -> None:
         """Let the Robot execute a script stored on it.
         Parameters
         ----------
@@ -113,8 +113,6 @@ class RemoteStation(SSHClient):
             except AssertionError:
                 log = False
         
-        # script_path = os.path.join(self.work_dir, filename)
-        
         # define the command according to mode (python, shell, or ot2, etc.)
         if mode is None:
             mode = self.mode
@@ -124,25 +122,19 @@ class RemoteStation(SSHClient):
             command = ["bash", filename]
         elif mode == "ot2":
             command = ["opentrons_execute", filename]
-        else:
-            print("Mode can only be one of: python, shell, ot2")
-            raise
         
         # Execution
         _, stdout, _ = self.exec_command(
             f"cd {self.work_dir}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
             get_pty=True
         )
-        stdout = stdout.read().decode() # read text from ChannelFile object
-
+        # stdout = stdout.read().decode() # read text from ChannelFile object
+        
         # post-execution logging
-        if log:
+        if True:
             for line in stdout:
                 print(line.rstrip())
-                self.logger.info(line.rstrip())
-
-        # need to return output to be used as input for succeeding scripts
-        return stdout
+                # self.logger.info(line.rstrip())
 
 if __name__ == "__main__":
     print(__file__)
