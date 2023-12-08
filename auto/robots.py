@@ -14,8 +14,9 @@ class ConductivityMeter(Robot):
         self._check = False
         self.cond_list = []
         self.temp_list = []
+        self.slot_list = []
     
-    def read_cond(self, verbose=False, append=True):
+    def read_cond(self, slot:str, verbose=False, append=True):
         port = "/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0"
         self._check = False
         with serial.Serial(port, 9600, timeout=2) as ser:
@@ -40,6 +41,7 @@ class ConductivityMeter(Robot):
             self._check = True
 
             if append:
+                self.slot_list.append(slot)
                 self.cond_list.append(self._cond)
                 self.temp_list.append(self._temp)
 
@@ -47,12 +49,13 @@ class ConductivityMeter(Robot):
     def clear_cache(self):
         self.cond_list = []
         self.temp_list = []
+        self.slot_list = []
 
-
-    def export_data(self, path="./", metadata=None, clear_cache=True):
+    def export_data(self, fname, metadata=None, clear_cache=True):
         """
         """
         data = {
+            "Well": self.slot_list,
             "measured_conductivity(S/cm)": self.cond_list,
             "temperature(C)": self.temp_list
         }
@@ -66,7 +69,7 @@ class ConductivityMeter(Robot):
         if clear_cache:
             self.clear_cache()
 
-        df.to_csv(path, index=False)
+        df.to_csv(fname, index=False)
         self._exported_data = df
 
 

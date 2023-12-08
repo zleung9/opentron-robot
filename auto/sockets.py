@@ -1,5 +1,5 @@
 from socket import socket
-
+from time import sleep
 
 class SocketServer(socket):
     def __init__(self, host, port):
@@ -22,10 +22,12 @@ class SocketServer(socket):
                     break
             except socket.timeout:
                 continue
+        return message
 
 
     def start(self, host, port):
         self.bind((host, port))
+        sleep(2)
         print(f'Server is up and listing on the port {port}...')
         self.listen()
         try:
