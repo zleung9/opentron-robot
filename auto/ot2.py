@@ -1,7 +1,7 @@
 import sys
 import json
 sys.path.append("./")
-from robots import Robot
+from robots import Robot, ConductivityMeter
 from sockets import SocketServer
 from opentrons import protocol_api
 
@@ -29,7 +29,7 @@ class OT2(Robot):
     def load_plate(self):
         with open('/data/user_storage/automat_2x4wellplate_20ml.json') as labware_file:
             targetplated = json.load(labware_file)
-        self.plate = self.protocol.load_labware_from_definition(targetplated, 9)
+        self.plate9 = self.protocol.load_labware_from_definition(targetplated, 9)
 
     def load_tiprack(self):
         self.tiprack1 = self.protocol.load_labware('opentrons_96_tiprack_1000ul', 1)
@@ -50,7 +50,7 @@ class OT2(Robot):
     def movearound(self) -> None:
         """For demo only.
         """
-        print("Moving things around...")
+        print("Moving things around and making solutions...")
     
     def demo(self) -> None: ...
 
@@ -66,49 +66,58 @@ class OT2(Robot):
     
     
     def dispense_action(self, microLiter, myIdx, amounts, counter, well_shift):
-        self.rpip.dispense(microLiter, self.plate.wells()[myIdx]).blow_out()
-        print(1000*counter, "out of", amounts[myIdx-well_shift], "uL dispensed into", self.plate.wells()[myIdx])
+        self.rpip.dispense(microLiter, self.plate9.wells()[myIdx]).blow_out()
+        print(1000*counter, "out of", amounts[myIdx-well_shift], "uL dispensed into", self.plate9.wells()[myIdx])
         self.sleep(2)
 
 
     def mix(self, mixing_tip, well_shift):
         self.rpip.pick_up_tip(self.tiprack1[mixing_tip])
         if well_shift < 8:
-            self.rpip.mix(3, 1000, location = self.plate.wells()[well_shift].bottom(5))
+            self.rpip.mix(3, 1000, location = self.plate9.wells()[well_shift].bottom(5))
         else:
-            self.rpip.mix(3, 1000, location = self.plate.wells()[well_shift-8].bottom(5))
+            self.rpip.mix(3, 1000, location = self.plate9.wells()[well_shift-8].bottom(5))
         self.rpip.return_tip()
     
     def move1(self):
-
         self.sleep(3)
-        self.rpip.move_to(self.plate["B1"].top(20))
+        self.rpip.move_to(self.plate9["B1"].top(20))
         self.rpip.pick_up_tip(self.tiprack1["A1"])
 
         # fake dispensing
-        self.rpip.move_to(self.plate["B1"].top(10))
-        self.rpip.move_to(self.plate["B1"].top(60))
-        self.rpip.move_to(self.plate["B1"].top(-10))
+        self.rpip.move_to(self.plate9["B1"].top(10))
+        self.rpip.move_to(self.plate9["B1"].top(60))
+        self.rpip.move_to(self.plate9["B1"].top(-10))
         self.rpip.drop_tip(self.tiprack1["A1"])
+        self.rpip.move_to(self.tiprack1["A1"].top(60)) # move higher not to block
 
         # pickup voltage meter
         self.rpip.pick_up_tip(self.tiprack2["A2"])
-        self.rpip.move_to(self.plate["B1"].top(10))
-        self.rpip.move_to(self.plate["B1"].top(-20))
+        self.rpip.move_to(self.plate9["B1"].top(10))
+        self.rpip.move_to(self.plate9["B1"].top(-20))
         
 
     def move2(self):
 
-        self.sleep(3)
-        self.rpip.pick_up_tip(self.tiprack2["A1"].top(50)) # fake pick up
+        self.sleep(1)
         self.rpip.move_to(self.tiprack2["A1"].top(30))
         self.rpip.drop_tip(self.tiprack2["B4"]) # drop voltage meter
-        self.sleep(2)
+        
+        self.sleep(1)
+        self.lpip.move_to(self.plate9["B1"].top(10)) 
+        self.lpip.move_to(self.plate9["B1"].top(-20))
+        self.lpip.move_to(self.plate9["B1"].top(60))
+    
+    def measure_conductivity(self, plate, cond_meter:ConductivityMeter):
+        for slot in ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]:
+            self.lpip.move_to(plate[slot].top(10)) 
+            self.lpip.move_to(plate[slot].top(-20))
+            self.lpip.move_to(plate[slot].top(60))
+            self.sleep(1)
+            cond_meter.read_cond(slot, append=True)
+            self.lpip.move_to(plate[slot].top(60))
 
-        self.sleep(2)
-        self.lpip.move_to(self.plate["B1"].top(10)) 
-        self.lpip.move_to(self.plate["B1"].top(-20))
-        self.lpip.move_to(self.plate["B1"].top(60))
+            print(f"Conductivity measured: {slot}!")
 
 if __name__ == "__main__":
     ot2 = OT2(protocol_api.ProtocolContext())
