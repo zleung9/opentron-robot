@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import datetime
 import paramiko
 from paramiko import SSHClient
@@ -57,33 +58,69 @@ class RemoteStation(SSHClient):
             self.work_dir = '/data/user_storage/'
 
 
-    def transfer(self, filename, local_path=None, remote_path=None, mode="upload"):
+    def transfer(self, path_from=None, path_to=None, mode="put"):
         """Upload a script to the Robot from a local path.
         """
-        assert mode in ["upload", "download"], "mode must be 'upload' or 'download'"
+        assert path_from is not None, "Provide file path to transfer from"
+        assert path_to is not None, "Provide file path to transfer to"
+
+        if mode == "local":
+            shutil.copy2(path_from, path_to)
+        elif mode == "put":
+            self.scp = SCPClient(self.get_transport())
+            self.scp.put(path_from, remote_path=path_to, recursive=True)
+        elif mode == "get":
+            self.scp = SCPClient(self.get_transport())
+            self.scp.get(path_from, local_path=path_to, recursive=True)
+        else:
+            print("mode must be one of: 'local', 'upload' or 'download'")
+            raise
+
+
+    def put(self, 
+            folder:str, 
+            local_path:str=None, 
+            remote_path:str=None, 
+            modules:list=["ot2.py", "robots.py", "sockets.py"]
+        ) -> None:
+        """ A wrapper of `transfer` method to upload experiment folder to remote station.
+        It first copies modules (e.g. robots.py, ot2.py, etc.) to the experiment folder which is 
+        then uploaded to remote station. This step is not necessary for stations that are capable 
+        of installing this package. But for stations such as Opentron where 'pip' installation of 
+        local package is not allowed, this step helps update the working folder with latest module.
+
+        Parameters
+        ----------
+        folder : str
+            The the name of the eperiment folder to run on remote station.
+        local_path : str
+            The path to `folder`.
+        remote_path : str
+            The path to `folder` on the remote station
+        modules : list[str]
+            A list of modules (or module files) to be put to the experiment folder on the remote
+        station. This ensures the experiment imports the latest module. By default it contains the
+        following files: `ot2.py`, `robots.py` and `sockets.py`.
+        
+        """
+        # Define path to the experiment folder to be put to the remote station
         if local_path is None:
             local_path = LOCAL_SCRIPTS_DIR
         if remote_path is None:
             remote_path = self.remote_root_dir
-        self.scp = SCPClient(self.get_transport())
-        if mode == "upload":
-            self.scp.put(
-                os.path.join(local_path, filename), 
-                remote_path=remote_path,
-                recursive=True
+        local_experiment = os.path.join(local_path, folder)
+        remote_experiment = os.path.join(remote_path, folder)
+
+        # put experiment folder to remote station
+        self.transfer(path_from=local_experiment, path_to=remote_path, mode="put")
+        
+        # put latest modules to experiment folder on the remote station
+        for module in modules:
+            self.transfer( 
+                path_from=os.path.join(PACKAGE_DIR, module), 
+                path_to=remote_experiment, 
+                mode="put"
             )
-        else:
-            self.scp.get(
-                os.path.join(remote_path, filename),
-                local_path=local_path,
-                recursive=True
-            )
-
-
-    def load(self, filenames, local_path=None, remote_path=None):
-        for filename in filenames:
-            self.transfer(filename, local_path=local_path, remote_path=remote_path, mode="upload")
-
 
     def execute(self, filename:str, log:bool=False, mode:str="") -> None:
         """Let the Robot execute a script stored on it.
@@ -142,5 +179,6 @@ class RemoteStation(SSHClient):
             print(f"Interrupted: {datetime.today()}")
 
 if __name__ == "__main__":
-    print(__file__)
-    pass
+    print(PACKAGE_DIR)
+    print(ROOT_DIR)
+    print(LOCAL_SCRIPTS_DIR)
