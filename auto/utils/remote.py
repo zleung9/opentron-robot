@@ -1,5 +1,5 @@
 import os
-import subprocess
+from datetime import datetime
 import paramiko
 from paramiko import SSHClient
 from scp import SCPClient
@@ -114,7 +114,7 @@ class RemoteStation(SSHClient):
                 log = False
         
         # define the command according to mode (python, shell, or ot2, etc.)
-        if mode is None:
+        if mode == "":
             mode = self.mode
         if mode == "python":
             command = ["python", filename]
@@ -122,19 +122,24 @@ class RemoteStation(SSHClient):
             command = ["bash", filename]
         elif mode == "ot2":
             command = ["opentrons_execute", filename]
-        
         # Execution
-        _, stdout, _ = self.exec_command(
-            f"cd {self.work_dir}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
-            get_pty=True
-        )
-        # stdout = stdout.read().decode() # read text from ChannelFile object
-        
-        # post-execution logging
-        if True:
+        try:
+            stdin, stdout, stderr = self.exec_command( 
+                f"cd {self.work_dir}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
+                get_pty=True
+            ) # Donot omit "stdin" and "stderr", otherwise "stdout" will not be displayed.
+            
+            # post-execution logging
             for line in stdout:
                 print(line.rstrip())
-                # self.logger.info(line.rstrip())
+                if log:
+                    self.logger.info(line.rstrip())
+
+        except KeyboardInterrupt as e:
+            print(f"Interruption detedted: {datetime.today()}")
+            self.exec_command("\x03")
+            self.close()
+            print(f"Interrupted: {datetime.today()}")
 
 if __name__ == "__main__":
     print(__file__)
