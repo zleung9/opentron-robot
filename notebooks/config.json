@@ -1,0 +1,16 @@
+{
+    "ssh_key": "C:\\Users\\Automat\\Documents\\automation_control\\.ssh\\ssh_key_OT2_SDWF",
+    "ip": "169.254.66.103",
+    "port": 22,
+    "labwares": {
+        "1": "opentrons_96_tiprack_1000ul",
+        "5": "automat_2x4wellplate_50ml.json",
+        "8": "automat_2x4wellplate_50ml.json",
+        "9": "automat_2x4wellplate_20ml.json",
+        "11": "opentrons_96_tiprack_1000ul"
+    },
+    "pipettes": {
+        "left": ["p300_single_gen2", ""],
+        "right":["p1000_single_gen2", "11"]
+    }
+}
