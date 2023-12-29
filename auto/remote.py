@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 from datetime import datetime
 import paramiko
@@ -20,15 +21,20 @@ class RemoteStation(SSHClient):
     different computers and devices.
     """
 
-    def __init__(self, name, execution_mode="python"):
+    def __init__(self, name, execution_mode="python", config=None):
         super().__init__()
         self.name = name
-        self.hostname = None
         self.scp = None
         self.logger = None
         self.work_dir = LOCAL_SCRIPTS_DIR
         self.remote_root_dir = REMOTE_SCRIPTS_DIR
         self.mode = execution_mode
+        if config:
+            self._hostname = config["ip"]
+            self._ssh_key_path = config["ssh_key"]
+            self._port = config["port"]
+            self._username = config["username"]
+            self._passphrase = config["passphrase"]
 
     def create_logger(self, jobname, append=False, simple_fmt=True):
         self.logger = create_logger(
@@ -39,18 +45,17 @@ class RemoteStation(SSHClient):
         )
 
 
-    def connect(self, hostname=None, port=22, key_path=None, username="root", passphrase=""):
+    def connect(self):
         """Override the `connect` method in original `SSHClient` class.
         """
-        self.hostname = hostname
         self.set_missing_host_key_policy(paramiko.client.WarningPolicy)
         try:
             super().connect(
-                hostname=hostname,
-                port=port,
-                username=username, 
-                passphrase=passphrase, 
-                key_filename=key_path
+                hostname=self._hostname,
+                port=self._port,
+                username=self._username, 
+                passphrase=self._passphrase, 
+                key_filename=self._ssh_key_path
             )
         except:
             raise

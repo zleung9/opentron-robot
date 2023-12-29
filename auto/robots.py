@@ -3,20 +3,29 @@ from abc import ABC
 import pandas as pd
 
 class Robot(ABC):
-    def __init__(self): ...
+    def __init__(self, config=None): 
+        self.config = {}    
+
+    def load_config(self, config) -> None: 
+        raise NotImplementedError
 
 
 class ConductivityMeter(Robot):
-    def __init__(self): 
-        super().__init__()
+    def __init__(self, config=None): 
+        super().__init__(config=config)
         self._cond = None # unit: S/cm
         self._temp = None # unit: C
         self._check = False
         self.cond_list = []
         self.temp_list = []
         self.slot_list = []
-    
-    def read_cond(self, slot:str, verbose=False, append=True):
+        self.name_list = []
+
+    def load_config(self, config):
+        self.config = config
+
+
+    def read_cond(self, slot:str, name=None, verbose=False, append=True):
         port = "/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0"
         self._check = False
         with serial.Serial(port, 9600, timeout=2) as ser:
@@ -39,23 +48,26 @@ class ConductivityMeter(Robot):
             self._temp = temperature
             self._cond = conductivity
             self._check = True
+            self._name = name
 
             if append:
                 self.slot_list.append(slot)
                 self.cond_list.append(self._cond)
                 self.temp_list.append(self._temp)
-
+                self.name_list.append(self._name)
 
     def clear_cache(self):
         self.cond_list = []
         self.temp_list = []
         self.slot_list = []
 
+
     def export_data(self, fname, metadata=None, clear_cache=True):
         """
         """
+
         data = {
-            "Well": self.slot_list,
+            "name": self.name_list,
             "measured_conductivity(S/cm)": self.cond_list,
             "temperature(C)": self.temp_list
         }
