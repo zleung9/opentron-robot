@@ -198,13 +198,14 @@ class OT2(Robot):
         put_back : bool
             If True, replace the plate back to the original slot.
         """
-        
+        del self.protocol.deck[str(lot_index)]
+
         if put_back:
             new_def = self.config["Robots"]["OT2"]["labwares"][str(lot_index)]
         else:
             new_def = self.config["Robots"]["Conductivity Meter"]["labwares"][str(lot_index)]
 
-        self.lot[lot_index] = self.load_labware(new_def[lot_index], lot_index)
+        self.lot[lot_index] = self.load_labware(new_def, lot_index)
         print(f"Plate {lot_index} changed to {new_def}!")
 
 
@@ -221,11 +222,11 @@ class OT2(Robot):
         formulations = self.config["Formulations"]
         plate = self.lot[lot_index]
         for slot in formulations:
-            self.cond_arm.move_to(plate[slot].top(20)) 
-            self.cond_arm.move_to(plate[slot].bottom(10))
+            self.cond_arm.move_to(plate[slot].top(50))
+            self.cond_arm.move_to(plate[slot].bottom(20))
             self.sleep(1)
             cond_meter.read_cond(slot, name=formulations[slot]["name"], append=True)
-            self.cond_arm.move_to(plate[slot].top(20))
+            self.cond_arm.move_to(plate[slot].top(50))
 
             print(f"Conductivity measured: {slot}!")
         self.replace_plate_for_conductivity(lot_index, put_back=True)
