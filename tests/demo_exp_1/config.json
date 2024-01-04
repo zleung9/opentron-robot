@@ -22,8 +22,8 @@
         },
         "Conductivity Meter": {
             "labwares": {
-                "2": "automat_2x4wellplate_20ml.json",
-                "6": "automat_2x4wellplate_20ml.json"
+                "2": "automat_2x4wellplate_20ml_offset.json",
+                "6": "automat_2x4wellplate_20ml_offset.json"
             }
         },
         "SquidStat": {},

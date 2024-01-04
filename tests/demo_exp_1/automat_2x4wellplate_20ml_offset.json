@@ -1,0 +1,133 @@
+{
+    "ordering": [
+        [
+            "A1", "A2", "A3", "A4"
+            
+        ],
+        [
+            "B1", "B2", "B3", "B4"
+        ]
+    ],
+    "brand": {
+        "brand": "Automat",
+        "brandId": []
+    },
+    "metadata": {
+        "displayName": "automat_2x4wellplate_20ml_offset",
+        "displayCategory": "wellPlate",
+        "displayVolumeUnits": "µL",
+        "tags": []
+    },
+    "dimensions": {
+        "xDimension": 127.9,
+        "yDimension": 85.5,
+        "zDimension": 59.67
+    },
+    "wells": {
+        "A1": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 19,
+            "y": 57.6,
+            "z": 1.77
+        },
+        "A2": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 49,
+            "y": 57.6,
+            "z": 1.77
+        },
+        
+        "A3": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 79,
+            "y": 57.6,
+            "z": 1.77
+        },
+        "A4": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 109,
+            "y": 57.6,
+            "z": 1.77
+        },
+		"B1": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 19,
+            "y": 27.6,
+            "z": 1.77
+        },
+		"B2": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 49,
+            "y": 27.6,
+            "z": 1.77
+        },
+		"B3": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 79,
+            "y": 27.6,
+            "z": 1.77
+        },
+        "B4": {
+            "depth": 57.9,
+            "totalLiquidVolume": 20000,
+            "shape": "circular",
+            "diameter": 16.78,
+            "x": 109,
+            "y": 27.6,
+            "z": 1.77
+        }
+    },
+    "groups": [
+        {
+            "metadata": {
+                "wellBottomShape": "flat"
+            },
+            "wells": [
+                "A1",
+                "A2",
+                "A3",
+                "A4",
+                "B1",
+                "B2",
+                "B3",
+                "B4"
+            ]
+        }
+    ],
+    "parameters": {
+        "format": "irregular",
+        "quirks": [],
+        "isTiprack": false,
+        "isMagneticModuleCompatible": false,
+        "loadName": "automat_2x4wellplate_20ml_offset"
+    },
+    "namespace": "custom_beta",
+    "version": 1,
+    "schemaVersion": 2,
+    "cornerOffsetFromSlot": {
+        "x": -1,
+        "y": -35.2,
+        "z": 0
+    }
+}
