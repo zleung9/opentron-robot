@@ -20,7 +20,12 @@
                 "right":"p1000_single_gen2"
             }
         },
-        "Conductivity Meter": {},
+        "Conductivity Meter": {
+            "labwares": {
+                "2": "automat_2x4wellplate_20ml.json",
+                "6": "automat_2x4wellplate_20ml.json"
+            }
+        },
         "SquidStat": {},
         "ChemSpeed": {},
         "Robotic Arm": {}

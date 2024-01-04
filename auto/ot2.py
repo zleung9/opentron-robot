@@ -27,6 +27,27 @@ class OT2(Robot):
         if config:
             self.load_config(config)
 
+    def load_labware(self, definition:str, n:int):
+        """Load labware from a json file.
+        Parameters
+        ----------
+        definition : str
+            The path to the json file.
+        n : int
+            The slot number to load the labware.
+        
+        Returns
+        -------
+        labware : opentrons.labware.Labware
+            The labware object.
+        """
+        if definition.endswith(".json"):
+            with open(definition, "r") as f:
+                labware = self.protocol.load_labware_from_definition(json.load(f), n)
+        else:
+            labware = self.protocol.load_labware(definition, n)
+        return labware
+
     def load_config(self, config) -> None:
         """ Park labwares into slots and mount pipettes onto arms.
         """
@@ -35,12 +56,7 @@ class OT2(Robot):
         config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
         for key, value in config["labwares"].items():
             n = int(key)
-            if value.endswith(".json"):
-                with open(value, "r") as f:
-                    definition = json.load(f)
-                self.lot[n] = self.protocol.load_labware_from_definition(definition, n)
-            else:
-                self.lot[n] = self.protocol.load_labware(value, n)
+            self.lot[n] = self.load_labware(value, n)
             if "tiprack" in value:
                 self.tiprack = self.lot[n]
         
@@ -172,49 +188,36 @@ class OT2(Robot):
             for l in self.dispensing_queue:
                 print(l)
 
-
-
-
-    # def mix(self, mixing_tip, well_shift):
-    #     self.pip_arm.pick_up_tip(self.tiprack1[mixing_tip])
-    #     if well_shift < 8:
-    #         self.pip_arm.mix(3, 1000, location_index = self.lot[9].wells()[well_shift].bottom(5))
-    #     else:
-    #         self.pip_arm.mix(3, 1000, location_index = self.lot[9].wells()[well_shift-8].bottom(5))
-    #     self.pip_arm.return_tip()
-    
-
-    
-    def move1(self):
-        self.sleep(3)
-        self.pip_arm.move_to(self.lot[9]["B1"].top(20))
-        self.pip_arm.pick_up_tip(self.tiprack1["A1"])
-
-        # fake dispensing
-        self.pip_arm.move_to(self.lot[9]["B1"].top(10))
-        self.pip_arm.move_to(self.lot[9]["B1"].top(60))
-        self.pip_arm.move_to(self.lot[9]["B1"].top(-10))
-        self.pip_arm.drop_tip(self.tiprack1["A1"])
-        self.pip_arm.move_to(self.tiprack1["A1"].top(60)) # move higher not to block
-
-        # pickup voltage meter
-        self.pip_arm.pick_up_tip(self.tiprack2["A2"])
-        self.pip_arm.move_to(self.lot[9]["B1"].top(10))
-        self.pip_arm.move_to(self.lot[9]["B1"].top(-20))
+    def replace_plate_for_conductivity(self, lot_index, put_back=False):
+        """ Replace the plate for conductivity measurement. The reason to do so is that there is an 
+        offset between the pipette tip and the conductivity meter. The offset is about 10 mm.
+        Parameters
+        ----------
+        lot_index : int
+            The index of the plate to be replaced.
+        put_back : bool
+            If True, replace the plate back to the original slot.
+        """
         
+        if put_back:
+            new_def = self.config["Robots"]["OT2"]["labwares"][str(lot_index)]
+        else:
+            new_def = self.config["Robots"]["Conductivity Meter"]["labwares"][str(lot_index)]
 
-    def move2(self):
+        self.lot[lot_index] = self.load_labware(new_def[lot_index], lot_index)
+        print(f"Plate {lot_index} changed to {new_def}!")
 
-        self.sleep(1)
-        self.pip_arm.move_to(self.tiprack2["A1"].top(30))
-        self.pip_arm.drop_tip(self.tiprack2["B4"]) # drop voltage meter
-        
-        self.sleep(1)
-        self.cond_arm.move_to(self.lot[9]["B1"].top(10)) 
-        self.cond_arm.move_to(self.lot[9]["B1"].top(-20))
-        self.cond_arm.move_to(self.lot[9]["B1"].top(60))
-    
+
     def measure_conductivity(self, cond_meter:ConductivityMeter, lot_index:int):
+        """ Measure conductivity of the plate.
+        Parameters
+        ----------
+        cond_meter : ConductivityMeter
+            The conductivity meter object.
+        lot_index : int
+            The index of the plate to be measured.
+        """
+        self.replace_plate_for_conductivity(lot_index)
         formulations = self.config["Formulations"]
         plate = self.lot[lot_index]
         for slot in formulations:
@@ -225,6 +228,7 @@ class OT2(Robot):
             self.cond_arm.move_to(plate[slot].top(20))
 
             print(f"Conductivity measured: {slot}!")
+        self.replace_plate_for_conductivity(lot_index, put_back=True)
 
 if __name__ == "__main__":
     ot2 = OT2(protocol_api.ProtocolContext())
