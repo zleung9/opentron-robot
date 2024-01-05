@@ -208,6 +208,23 @@ class OT2(Robot):
         self.lot[lot_index] = self.load_labware(new_def, lot_index)
         print(f"Plate {lot_index} changed to {new_def}!")
 
+    def rinse_cond_arm(self, lot_index:int):
+        """ Rinse the conductivity meter arm. After measuring conductivity for one solution, the
+        conductivity meter arm will move to the plate with four water wells. The conductivity meter
+        arm will rinse itself in the four wells. In each well, the arm will move up and down for 3
+        times.
+        """
+        plate = self.lot[lot_index]  # Assuming lot_index is defined elsewhere
+
+        for slot in ["A1", "A2", "A3", "A4"]:
+            for _ in range(3):
+                self.cond_arm.move_to(plate[slot].top())
+                self.cond_arm.move_to(plate[slot].bottom(10))
+                self.cond_arm.move_to(plate[slot].bottom(5))
+        
+        print("Conductivity meter arm rinsed.")
+        
+
 
     def measure_conductivity(self, cond_meter:ConductivityMeter, lot_index:int):
         """ Measure conductivity of the plate.
