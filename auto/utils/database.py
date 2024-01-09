@@ -77,6 +77,11 @@ class Database():
         return _data
     
 
+def get_amount_from_recipe(df, total_mass=1, density=1):
+    """Get the amount of each chemical from a recipe."""
+    return df
+
+
 if __name__ == "__main__":
     db = Database(db="test_db")
     df = db.pull(table="half_cell_classifier_test")
