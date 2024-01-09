@@ -126,6 +126,50 @@ class RemoteStation(SSHClient):
                 path_to=remote_experiment, 
                 mode="put"
             )
+        
+
+    def download_data(self, 
+            data_files:list,
+            folder:str=None,
+            local_path:str=None, 
+            remote_path:str=None
+        ) -> None:
+        """ A wrapper of `transfer` method to upload experiment folder to remote station.
+        It first copies modules (e.g. robots.py, ot2.py, etc.) to the experiment folder which is 
+        then uploaded to remote station. This step is not necessary for stations that are capable 
+        of installing this package. But for stations such as Opentron where 'pip' installation of 
+        local package is not allowed, this step helps update the working folder with latest module.
+
+        Parameters
+        ----------
+        data_files : list
+            A list of the name of the eperiment data to download from remote station. 
+            Each file usually takes the form of "experiment_folder/data_file.csv"
+        local_path : str
+            The path to `folder`.
+        remote_path : str
+            The path to `folder` on the remote station.
+        
+        """
+        # Define path to the experiment folder to be put to the remote station
+        if local_path is None:
+            local_path = LOCAL_SCRIPTS_DIR
+        if remote_path is None:
+            remote_path = self.remote_root_dir
+        
+        for f in data_files:
+            local_file = os.path.join(local_path, f)
+            remote_file = os.path.join(remote_path, f)
+            # put experiment folder to remote station
+            try:
+                self.transfer(path_from=remote_file, path_to=local_file, mode="get")
+            except FileNotFoundError:
+                print(f"File {f} doesn't exist on remote station.")
+                print(f"Please check the folder name and try again.")
+                raise
+            else:
+                print(f"File {remote_file} downloaded as {local_file}.")
+
 
     def execute(self, filename:str, log:bool=False, mode:str="") -> None:
         """Let the Robot execute a script stored on it.
@@ -182,6 +226,9 @@ class RemoteStation(SSHClient):
             self.exec_command("\x03")
             self.close()
             print(f"Interrupted: {datetime.today()}")
+
+
+
 
 if __name__ == "__main__":
     print(PACKAGE_DIR)
