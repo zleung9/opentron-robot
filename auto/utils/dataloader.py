@@ -277,7 +277,22 @@ class RecipeDataset(AutomatDataset):
         else:
             return df_copy
 
-    def normalize_components(self, by="total_mass(g)", inplace=False):
+
+    def normalize(self, by="total_mass(g)", inplace=False):
+        """Normalize the amount of each chemical by the total mass.
+        
+        Parameters
+        ----------
+        by : str, optional
+            The column name of the total mass. The default is "total_mass(g)".
+        inplace : bool, optional
+            Whether to update the dataframe inplace. The default is False.
+        
+        Returns
+        -------
+        df : pandas.DataFrame
+            The recipe of the experiment with normalized amount.
+        """
         _df = self._df.copy()
         total_mass = _df[self.chemical_names].sum(axis=1).to_numpy().reshape(-1, 1)
         components = _df[self.chemical_names].to_numpy()
@@ -289,6 +304,28 @@ class RecipeDataset(AutomatDataset):
             self._df = _df
         else:
             return _df.fillna(0)
+    
+
+    def unnormalize(self, by="total_mass(g)", inplace=False):
+        """Unnormalize the amount of each chemical by the total mass. 
+        
+        Parameters
+        ----------
+        by : str, optional
+            The column name of the total mass. The default is "total_mass(g)".
+        inplace : bool, optional
+            Whether to update the dataframe inplace. The default is False.
+        
+        Returns
+        -------
+        df : pandas.DataFrame
+            The recipe of the experiment with actual amount in .
+
+        """
+        ### TODO: implement this function ###
+        df_amount = self._df.copy()
+        return df_amount
+    
 
     def find_by_component(self, space, sub_space=False, super_space=False, target="LCE"):
         """ If `sub_space`, select all recipies that contain at least the given space, otherwise
