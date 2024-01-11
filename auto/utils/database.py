@@ -1,11 +1,6 @@
-# -*- coding: utf-8 -*-
-
-# Import packages
-import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, types
-import warnings
-warnings.simplefilter('ignore', np.RankWarning)
+from abc import ABC
 
 
 class Database():
@@ -29,44 +24,31 @@ class Database():
         self.name = None
 
     def pull(self, table="", remove_index=True):
-        """Pull data from a given table on database.
-        """
         assert self.engine is not None
         engine = self.engine
         data = pd.read_sql_table(table, engine)
         if remove_index:
             data = self._remove_index(data)
         return data
-
-
-    def push(self, data:pd.DataFrame=None, table:str="") -> None:
-        """Push data to update a given table on database.
-        Parameters
-        ----------
-        data : pandas.DataFrame
-
-        """
-        assert self.engine is not None
-        engine = self.engine
-        if table == "":
-            print("No table is updated! Please specify a table name")
-            return
-        else:
-            try:
-                data.to_sql(
-                    table, 
-                    con=engine, 
-                    if_exists='replace', 
-                    index=True,
-                    chunksize=100, # write 100 rows each time
-                    dtype={'graph': types.LargeBinary(length=2000000)}
-                )
-            except Exception as e:
-                print("Smoething went wrong")
-                print(e)
-            else:
-                print(f"{table} successfully updated.")
-
+    
+    def push(self, df=None, table=""):
+        """Updates the half_cell classifier table with cycling data"""
+        if not table:
+            table = self.table
+        df.to_sql(
+            table, 
+            con=self.engine, 
+            if_exists='replace', 
+            index=True,
+            chunksize=100, # write 100 rows each time
+            dtype={'graph': types.LargeBinary(length=2000000)}
+        )
+        if table == "half_cell_classifier":
+            ### Legacy code to update the table structure for "half_cell_classifier" table.
+            ### Int future all table structure should be updated locally before pushing to the database.
+            self.engine.execute(f"ALTER TABLE `{table}` ADD PRIMARY KEY(`id`);")
+            self.engine.execute(f"ALTER TABLE `{table}r` CHANGE `id` `id` BIGINT(20) NOT NULL AUTO_INCREMENT;")
+        print(f"Updated {table} table")
 
     def _remove_index(self, data):
         _data = data.copy()
@@ -75,7 +57,7 @@ class Database():
         elif "id" in data.columns:
             _data = _data.drop('id', axis=1)
         return _data
-    
+
 
 if __name__ == "__main__":
     db = Database(db="test_db")

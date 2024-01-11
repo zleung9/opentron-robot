@@ -2,7 +2,7 @@
     "Remote Stations": {
         "OT2": {
             "ssh_key": "C:\\Users\\Automat\\Documents\\automation_control\\.ssh\\ssh_key_OT2_SDWF",
-            "ip": "169.254.2.214",
+            "ip": "169.254.1.78",
             "port": 22,
             "username": "root",
             "passphrase": ""
@@ -31,12 +31,12 @@
         "Robotic Arm": {}
     },
     "Chemicals": {
-        "A3": ["Chemical1", 5000],
-        "A4": ["Chemical2", 5000]
+        "Chemical1": ["A3", 5000],
+        "Chemical2": ["A4", 5000]
     },
     "Formulations": {
-        "A3": {"name": "21-7-000", "Chemical1": 20, "Chemical2": 10},
-        "A4": {"name": "21-7-001", "Chemical1": 10, "Chemical2": 20}
+        "B3": {"Chemical1": 20, "Chemical2": 10},
+        "B4": {"Chemical1": 10, "Chemical2": 20}
     }
 }
 
