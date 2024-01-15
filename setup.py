@@ -14,7 +14,7 @@ setup(
     ],
     entry_points={ # create scripts and add to sys.PATH
         'console_scripts': [
-            "run_sdwf = auto.scripts.run_sdwf:main",
+            "run_sdwf = scripts.run_sdwf:main",
         ],
     },
 )
