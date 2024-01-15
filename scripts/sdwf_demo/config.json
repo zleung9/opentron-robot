@@ -1,4 +1,8 @@
 {
+    "System": {
+        "work_dir": "C:\\Users\\Automat\\Documents\\automation_control\\scripts\\",
+        "experiment_name": "sdwf_demo"
+    },
     "Remote Stations": {
         "OT2": {
             "ssh_key": "C:\\Users\\Automat\\Documents\\automation_control\\.ssh\\ssh_key_OT2_SDWF",
@@ -17,7 +21,7 @@
             },
             "pipettes": {
                 "left": "conductivity",
-                "right":"p1000_single_gen2"
+                "right": "p1000_single_gen2"
             }
         },
         "Conductivity Meter": {
@@ -31,13 +35,23 @@
         "Robotic Arm": {}
     },
     "Chemicals": {
-        "Chemical1": ["A3", 5000],
-        "Chemical2": ["A4", 5000]
+        "Chemical1": [
+            "A3",
+            5000
+        ],
+        "Chemical2": [
+            "A4",
+            5000
+        ]
     },
     "Formulations": {
-        "B3": {"Chemical1": 20, "Chemical2": 10},
-        "B4": {"Chemical1": 10, "Chemical2": 20}
+        "B3": {
+            "Chemical1": 20,
+            "Chemical2": 10
+        },
+        "B4": {
+            "Chemical1": 10,
+            "Chemical2": 20
+        }
     }
 }
-
-    

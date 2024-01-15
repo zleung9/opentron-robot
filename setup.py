@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='auto',
-    version='0.0.1',
+    version='0.0.2',
     description="A platform for controling all the robots in Automat's lat ",
     license='See license',
     packages=find_packages(),
@@ -14,7 +14,7 @@ setup(
     ],
     entry_points={ # create scripts and add to sys.PATH
         'console_scripts': [
-            # to be added
+            "run_sdwf = auto.scripts.run_sdwf:main",
         ],
     },
 )
