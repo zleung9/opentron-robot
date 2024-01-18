@@ -86,7 +86,7 @@ class RemoteStation(SSHClient):
             folder:str, 
             local_path:str=None, 
             remote_path:str=None, 
-            modules:list=["ot2.py", "robots.py", "sockets.py"]
+            modules:list=["ot2.py", "robots.py", "sockets.py", "pump_raspi"]
         ) -> None:
         """ A wrapper of `transfer` method to upload experiment folder to remote station.
         It first copies modules (e.g. robots.py, ot2.py, etc.) to the experiment folder which is 
