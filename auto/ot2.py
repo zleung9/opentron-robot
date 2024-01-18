@@ -18,6 +18,11 @@ try:
 except ModuleNotFoundError:
     from auto import protocol_api
 
+try:
+    from pump_raspi import raspi_comm
+except:
+    from auto.pump_raspi import raspi_comm
+
 
 class OT2(Robot):
     def __init__(self, protocol:protocol_api.ProtocolContext, config=None):
@@ -227,15 +232,37 @@ class OT2(Robot):
         times.
         """
         plate = self.lot[lot_index]  # Assuming lot_index is defined elsewhere
-
+        self.protocol.max_speeds['x'] = 100
         for slot in ["A1", "A2", "A3", "A4"]:
+            self.cond_arm.move_to(plate[slot].top(100))
+            self.protocol.delay(2)
             for _ in range(3):
-                self.cond_arm.move_to(plate[slot].top())
-                self.cond_arm.move_to(plate[slot].bottom(10))
-                self.cond_arm.move_to(plate[slot].bottom(5))
-        
+                self.cond_arm.move_to(plate[slot].bottom(48.4))
+                self.cond_arm.move_to(plate[slot].bottom(75))
+            self.protocol.delay(3)
+                
         print("Conductivity meter arm rinsed.")
-        
+
+    def dry_cond_arm(self, lot_index:int):
+        """ Dry the conductivity meter arm. After rinsing itself in the four solvent wells, the arm will move to the sponge
+        deck position. It will then trigger the blow dryer and move slowly up and down to dry the probe evenly.
+        """
+        plate = self.lot[lot_index]  # Assuming lot_index is defined elsewhere
+        slot = ['A4']
+        self.cond_arm.move_to(plate[slot].top(55.5))
+        self.cond_arm.move_to([plate][slot].top(15.5))
+        self.cond_arm.move_to(plate[slot].top(93))
+        raspi_comm.trigger_pump()
+        self.protocol.max_speeds['z'] = 14
+        self.protocol.delay(3.5)
+        self.cond_arm.move_to(plate[slot].top(102))
+        self.cond_arm.move_to(plate[slot].top(74))
+        self.cond_arm.move_to(plate[slot].top(93))
+        self.protocol.delay(3)
+        del self.protocol.max_speeds['z']
+        del self.protocol.max_speeds['x']
+        self.cond_arm.move_to(plate[slot].top(15.5))
+        self.protocol.delay(1)
 
 
     def measure_conductivity(self, cond_meter:ConductivityMeter, lot_index:int):
@@ -256,8 +283,10 @@ class OT2(Robot):
             self.sleep(1)
             cond_meter.read_cond(slot, name=formulations[slot]["name"], append=True)
             self.cond_arm.move_to(plate[slot].top(50))
-
             print(f"Conductivity measured: {slot}!")
+            self.rinse_cond_arm(lot_index)
+            self.dry_cond_arm(lot_index)
+            
         self.replace_plate_for_conductivity(lot_index, put_back=True)
 
 if __name__ == "__main__":
