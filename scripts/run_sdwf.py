@@ -30,7 +30,7 @@ def main():
     ot2.work_dir = os.path.join(ot2.remote_root_dir, experiment_name)
     
     # ot2.execute("move_around.py", mode="python")
-    ot2.execute("move_around2.py", mode="ot2")
+    ot2.execute("make_solutions.py", mode="ot2")
 
     # get restulst from OT2
     ot2.download_data(f"{experiment_name}/experiment.csv")

@@ -22,11 +22,12 @@ def run(protocol: protocol_api.ProtocolContext):
     ot2.generate_dispensing_queue(m=2, n=6, verbose=True)
     ot2.pip_arm.pick_up_tip()
     for (source, target, volume) in ot2.dispensing_queue:
+        if volume == 0: continue # skip empty dispensing
         ot2.dispense_chemical(source, target, volume, verbose=True) 
     ot2.pip_arm.drop_tip()
 
     ot2.measure_conductivity(cm, lot_index=6) # measure cond and update cond
-    cm.export_data("demo_cond.csv")
+    cm.export_data("experiment.csv")
 
     print("Demo finished...")
 
@@ -34,7 +35,6 @@ def run(protocol: protocol_api.ProtocolContext):
 def make_solution(ot2, formulations, config):
     ot2.load_chemicals(config)
     
-
 
 if __name__ == "__main__":
     print("Error: cannot execute with python, use 'opentron_execute' instead.")
