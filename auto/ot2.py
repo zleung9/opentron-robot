@@ -16,6 +16,12 @@ try:
 except ModuleNotFoundError:
     from auto import protocol_api
 
+try:
+    from pump_raspi import raspi_comm
+except:
+    from auto.pump_raspi import raspi_comm
+
+
 class OT2(Robot):
     def __init__(self, protocol:protocol_api.ProtocolContext, config=None):
         super().__init__(config=config)
@@ -232,19 +238,19 @@ class OT2(Robot):
         """
         plate = self.lot[lot_index]  # Assuming lot_index is defined elsewhere
         slot = ['A4']
-        self.left_pipette.move_to(plate[slot].top(55.5))
-        self.left_pipette.move_to([plate][slot].top(15.5))
-        self.left_pipette.move_to(plate[slot].top(93))
-        os.system("python /data/user_storage/dry.py")
+        self.cond_arm.move_to(plate[slot].top(55.5))
+        self.cond_arm.move_to([plate][slot].top(15.5))
+        self.cond_arm.move_to(plate[slot].top(93))
+        raspi_comm.trigger_pump()
         self.protocol.max_speeds['z'] = 14
         self.protocol.delay(3.5)
-        self.left_pipette.move_to(plate[slot].top(102))
-        self.left_pipette.move_to(plate[slot].top(74))
-        self.left_pipette.move_to(plate[slot].top(93))
+        self.cond_arm.move_to(plate[slot].top(102))
+        self.cond_arm.move_to(plate[slot].top(74))
+        self.cond_arm.move_to(plate[slot].top(93))
         self.protocol.delay(3)
         del self.protocol.max_speeds['z']
         del self.protocol.max_speeds['x']
-        self.left_pipette.move_to(plate[slot].top(15.5))
+        self.cond_arm.move_to(plate[slot].top(15.5))
         self.protocol.delay(1)
 
 
