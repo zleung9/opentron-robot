@@ -94,7 +94,6 @@ class OT2(Robot):
                 self.pip_arm = self.arm[side]
 
     
-
     def start_server(self, host="169.254.230.44", port=23):
         self.server = SocketServer(host=host, port=port)
 
@@ -202,9 +201,25 @@ class OT2(Robot):
         ...
 
         """
-        # Rest of the code remains the same
-        ...
+        # Read the formulations and get all the chemical names in the formulations
+        formulations = pd.read_csv(formula_input_path).reset_index(drop=True)
+        chemical_names = [s for s in formulations.columns if s.startswith("Chemical")]
+        print(chemical_names)
+        # Generate the dispensing queue
+        for i, name in enumerate(chemical_names):
+            volume_all = formulations[name]
+            # Check if the total volume of the chemical exceeds the limit
+            if volume_all.sum() > volume_limit: 
+                raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
+            source = self._source_locations[i] # The source location of the chemical
+            # Generate the dispensing queue for each chemical
+            for j, volume in volume_all.items():
+                target = self._target_locations[j] # The target location of the chemical
+                self._dispensing_queue.append([source, target, volume])
+                if verbose:
+                    print([name, source, target, volume])
 
+            
     def replace_plate_for_conductivity(self, lot_index, put_back=False):
         """ Replace the plate for conductivity measurement. The reason to do so is that there is an 
         offset between the pipette tip and the conductivity meter. The offset is about 10 mm.
@@ -225,6 +240,7 @@ class OT2(Robot):
         self.lot[lot_index] = self.load_labware(new_def, lot_index)
         print(f"Plate {lot_index} changed to {new_def}!")
 
+
     def rinse_cond_arm(self, lot_index:int):
         """ Rinse the conductivity meter arm. After measuring conductivity for one solution, the
         conductivity meter arm will move to the plate with four water wells. The conductivity meter
@@ -242,6 +258,7 @@ class OT2(Robot):
             self.protocol.delay(3)
                 
         print("Conductivity meter arm rinsed.")
+
 
     def dry_cond_arm(self, lot_index:int):
         """ Dry the conductivity meter arm. After rinsing itself in the four solvent wells, the arm will move to the sponge
