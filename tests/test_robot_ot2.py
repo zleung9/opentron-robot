@@ -8,28 +8,34 @@ import pandas as pd
 
 class Test_OT2(unittest.TestCase):
 
-    os.path.dirname(__file__)
-    with open(os.path.join("test_data","config.json"), "r") as f:
+    cwd = os.path.dirname(__file__)
+    config_path = os.path.join(cwd, "test_data","config.json")
+    formulation_path = os.path.join(cwd, "test_data", "experiment.csv")
+    with open(config_path, "r") as f:
         config = json.load(f)
-    
+
     @patch("auto.ot2.OT2.load_labware")
     def test_generate_dispensing_queue(self, mock_load_labware):
+        """Test that the dispensing queue is generated correctly"""
         mock_load_labware.return_value = None
         ot2 = OT2(protocol_api.ProtocolContext, config=self.config)
         ot2.generate_dispensing_queue(
-            formula_input_path=os.path.join("test_data", "experiment.csv"),
+            formula_input_path=self.formulation_path,
             volume_limit=5000,
             verbose=True
         )
         self.assertEqual(len(ot2._dispensing_queue), 80)
 
-    def test_read_formulation(self):
-        formula_input_path = os.path.join("test_data", "experiment.csv")
-        df = pd.read_csv(formula_input_path).reset_index(drop=True)
-        print(df)
+    def test_formulation_file_format(self):
+        """Test that the formulation file is in the correct format"""
+        df = pd.read_csv(self.formulation_path).reset_index(drop=True)
+        columns = list(df.columns)
+        self.assertTrue(all(f"Chemical{i}" in columns for i in range(1, 17)))
+        self.assertIn("Conductivity", columns)
+        self.assertIn("Time", columns)
+        self.assertIn("Temperature", columns)
+        self.assertIn("unique_id", columns)
     
-    def test_input_data(self):
-        ...
 
 
 
