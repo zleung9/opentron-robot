@@ -130,7 +130,6 @@ class RemoteStation(SSHClient):
 
     def download_data(self, 
             data_files:list,
-            folder:str=None,
             local_path:str=None, 
             remote_path:str=None
         ) -> None:
