@@ -1,3 +1,9 @@
+import numpy as np
+import pandas as pd 
+
+TOTAL_VOLUME_mL = 12
+FACTOR = 1000
+
 def generate_metadata(df):
     """Given the output data, generate the data to be uploaded back to database as well as
     the metadata for the experiment.
@@ -16,8 +22,10 @@ def generate_metadata(df):
     df_metadata = df.copy()
     return df_output, df_metadata
 
-def get_amount_from_recipe(df):
-    """Convert compositions (percentages) to actual amount in microgram. 
+def get_amount_from_recipe(df, total_volume_mL: int = TOTAL_VOLUME_mL, 
+                           target_columns: list = ["Conductivity"],
+                           drop_empty_columns: bool = False):
+    """Convert compositions (percentages) to actual amount in microliters. 
     Parameters
     ----------
     df : pandas.DataFrame
@@ -28,5 +36,16 @@ def get_amount_from_recipe(df):
         The recipe of the experiment with actual amount in microgram.
 
     """
-    df_amount = df.copy()
+    
+    '''Re-Arrange Columns'''
+    id_cols = ["unique_id"]
+    chem_cols = [c for c in df.colunms if c.startswith('Chemical')]
+    df = df.rename({"measured_conductivity": "Conductivity"})
+    metadata = [line.rstrip("\n") for line in open("metadata_cols.txt")] # Or is the metadata added by OT2? 
+    df_amount = df[id_cols + chem_cols + target_columns + metadata]
+    
+    df_amount[chem_cols] = df_amount[chem_cols] * (total_volume_mL/FACTOR)
+    if drop_empty_columns: 
+        df_amount = df_amount.loc[:, (df != 0).any(axis=0)]
+    
     return df_amount
