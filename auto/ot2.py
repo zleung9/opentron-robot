@@ -354,7 +354,7 @@ class OT2(Robot):
             self.cond_arm.move_to(self.lot[plate][slot].top(50))
             self.cond_arm.move_to(self.lot[plate][slot].bottom(20))
             self.sleep(1)
-            cond_meter.read_cond(slot, uid=row["unique_id"], append=True)
+            cond_meter.read_cond(uid=row["unique_id"], append=True)
             self.cond_arm.move_to(self.lot[plate][slot].top(50))
             print(f"Conductivity measured: {(plate, slot)}!")
             self.rinse_cond_arm() # Rinse the arm
