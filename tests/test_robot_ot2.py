@@ -22,9 +22,14 @@ class Test_OT2(unittest.TestCase):
         ot2.generate_dispensing_queue(
             formula_input_path=self.formulation_path,
             volume_limit=5000,
-            verbose=True
+            verbose=False
         )
-        self.assertEqual(len(ot2._dispensing_queue), 80)
+
+        self.assertEqual(len(ot2.dispensing_queue), 80)
+        self.assertEqual(ot2.chemical_names, [f"Chemical{i}" for i in range(1, 17)])
+        self.assertEqual(ot2.formulations.iloc[0]["location"], (2, "A1"))
+        self.assertEqual(ot2.formulations.iloc[0]["unique_id"], 111)
+
 
     def test_formulation_file_format(self):
         """Test that the formulation file is in the correct format"""
