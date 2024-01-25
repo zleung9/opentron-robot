@@ -276,7 +276,7 @@ class OT2(Robot):
         print(f"Plate {lot_index} changed to {definitioin}!")
 
 
-    def rinse_cond_arm(self, lot_index:int=None):
+    def rinse_cond_arm(self, n:int=None):
         """ Rinse the conductivity meter arm. After measuring conductivity for one solution, the
         conductivity meter arm will move to the plate with four water wells. The conductivity meter
         arm will rinse itself in the four wells. In each well, the arm will move up and down for 3
@@ -284,85 +284,91 @@ class OT2(Robot):
         
         Paramters
         ---------
-        lot_index : int
+        n : int
             The index of the plate that contains four water wells.
         
         """
-        if not lot_index:
-            lot_index = self.config["Robots"]["OT2"]["water_wells"][0]
+        if not n:
+            n = self.config["Robots"]["OT2"]["water_wells"][0]
 
-        plate = self.lot[lot_index]  # Assuming lot_index is defined elsewhere
         self.protocol.max_speeds['x'] = 100
-        for slot in ["A1", "A2", "A3", "A4"]:
-            self.cond_arm.move_to(plate[slot].top(100))
+        for i in ["A1", "A2", "A3", "A4"]:
+            well = self.lot[n][i]
+            self.cond_arm.move_to(self.adjust(well.top(100)))
             self.sleep(2)
             for _ in range(3):
-                self.cond_arm.move_to(plate[slot].bottom(48.4))
-                self.cond_arm.move_to(plate[slot].bottom(75))
+                self.cond_arm.move_to(self.adjust(well.bottom(48.4)))
+                self.cond_arm.move_to(self.adjust(well.bottom(75)))
             self.sleep(3)
                 
         print("Conductivity meter arm rinsed.")
 
 
-    def dry_cond_arm(self, lot_index:int=None):
+    def dry_cond_arm(self, n:int=None):
         """ Dry the conductivity meter arm. After rinsing itself in the four solvent wells, the arm will move to the sponge deck position. It will then trigger the blow dryer and move slowly up and down to dry the probe evenly.
         
         Paramters
         ---------
-        lot_index : int
+        n : int
             The index of the sponge deck.
         """
-        if not lot_index:
-            lot_index = self.config["Robots"]["OT2"]["sponge_deck"][0]
+        if not n:
+            n = self.config["Robots"]["OT2"]["sponge_deck"][0]
         
-        plate = self.lot[lot_index]  
-        slot = 'A4'
-        self.cond_arm.move_to(plate[slot].top(55.5))
-        self.cond_arm.move_to(plate[slot].top(15.5))
-        self.cond_arm.move_to(plate[slot].top(93))
+        deck = self.lot[n]["A4"] 
+        self.cond_arm.move_to(self.adjust(deck.top(55.5)))
+        self.cond_arm.move_to(self.adjust(deck.top(15.5)))
+        self.cond_arm.move_to(self.adjust(deck.top(93)))
         raspi_comm.trigger_pump()
         self.protocol.max_speeds['z'] = 14
         self.sleep(3.5)
-        self.cond_arm.move_to(plate[slot].top(102))
-        self.cond_arm.move_to(plate[slot].top(74))
-        self.cond_arm.move_to(plate[slot].top(93))
+        self.cond_arm.move_to(self.adjust(deck.top(102)))
+        self.cond_arm.move_to(self.adjust(deck.top(74)))
+        self.cond_arm.move_to(self.adjust(deck.top(93)))
         self.sleep(3)
         del self.protocol.max_speeds['z']
-        self.cond_arm.move_to(plate[slot].top(15.5))
+        self.cond_arm.move_to(self.adjust(deck.top(15.5)))
         self.sleep(1)
 
 
+    def adjust(self, location):
+        """ Adjust the location of the well by adding offsets.
+        
+        Parameters
+        ----------
+        location : opentrons.legacy_api.containers.placeable.Placeable
+            The location of the well.
+        
+        Returns
+        -------
+        location : opentrons.legacy_api.containers.placeable.Placeable
+            The adjusted location of the well.
+        """
+        x_off, y_off, z_off = self.config["Robots"]["Conductivity Meter"]["offset"]
+        return location.move(types.Point(x=x_off, y=y_off, z=z_off))
+
+
     def measure_conductivity(self, cond_meter:ConductivityMeter):
-        """ Measure conductivity of the plate.
+        """ Measure conductivity of the plate. `adjust` the location of the well for the conductivity meter arm.
         Parameters
         ----------
         cond_meter : ConductivityMeter
             The conductivity meter object.
-        lot_index : int
-            The index of the plate to be measured.
         """
-        # Replace the plate definition  for conductivity measurement
-        lot_indices_with_offset = self.config["Robots"]["OT2"]["formula_wells"] \
-                                + self.config["Robots"]["OT2"]["water_wells"]
-        for i in lot_indices_with_offset:
-            self.replace_plate_for_conductivity(i)
-        
+
         # Measure conductivity for each formulation
         for _, row in self.formulations.iterrows():
-            plate, slot = row["location"]
-            self.cond_arm.move_to(self.lot[plate][slot].top(50))
-            self.cond_arm.move_to(self.lot[plate][slot].bottom(20))
+            n, i = row["location"]
+            well = self.lot[n][i]
+            self.cond_arm.move_to(self.adjust(well.top(50)))
+            self.cond_arm.move_to(self.adjust(well.bottom(20)))
             self.sleep(1)
             cond_meter.read_cond(uid=row["unique_id"], append=True)
-            self.cond_arm.move_to(self.lot[plate][slot].top(50))
-            print(f"Conductivity measured: {(plate, slot)}!")
+            self.cond_arm.move_to(self.adjust(well.top(50)))
+            print(f"Conductivity measured: {(n, i)}!")
             self.rinse_cond_arm() # Rinse the arm
             self.dry_cond_arm() # Dry the arm
         
-        # Replace the plate definition back to the original
-        for i in lot_indices_with_offset:
-            self.replace_plate_for_conductivity(i, put_back=True)
-
     
 if __name__ == "__main__":
     ot2 = OT2(protocol_api.ProtocolContext())

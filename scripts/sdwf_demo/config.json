@@ -36,7 +36,9 @@
             "water_wells": [2],
             "sponge_deck": [3]
         },
-        "Conductivity Meter": {},
+        "Conductivity Meter": {
+            "offset": [0, 0, 0]
+        },
         "SquidStat": {},
         "ChemSpeed": {},
         "Robotic Arm": {}
