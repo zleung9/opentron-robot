@@ -81,7 +81,7 @@ class OT2(Robot):
             if "tiprack" in value:
                 self.tiprack = self.lot[n]
         
-        # Create a list of all possible target locations
+        # Create a list of all possible source locations
         self._source_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
             self.config["Robots"]["OT2"]["chemical_wells"], 
             ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
@@ -316,9 +316,9 @@ class OT2(Robot):
             lot_index = self.config["Robots"]["OT2"]["sponge_deck"][0]
         
         plate = self.lot[lot_index]  
-        slot = ['A4']
+        slot = 'A4'
         self.cond_arm.move_to(plate[slot].top(55.5))
-        self.cond_arm.move_to([plate][slot].top(15.5))
+        self.cond_arm.move_to(plate[slot].top(15.5))
         self.cond_arm.move_to(plate[slot].top(93))
         raspi_comm.trigger_pump()
         self.protocol.max_speeds['z'] = 14
@@ -328,7 +328,6 @@ class OT2(Robot):
         self.cond_arm.move_to(plate[slot].top(93))
         self.sleep(3)
         del self.protocol.max_speeds['z']
-        del self.protocol.max_speeds['x']
         self.cond_arm.move_to(plate[slot].top(15.5))
         self.sleep(1)
 
