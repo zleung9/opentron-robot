@@ -83,8 +83,7 @@ class RemoteStation(SSHClient):
 
 
     def put(self, 
-            folder:str, 
-            local_path:str=None, 
+            local_path:str, 
             remote_path:str=None, 
             modules:list=["ot2.py", "robots.py", "sockets.py", "pump_raspi"]
         ) -> None:
@@ -109,15 +108,13 @@ class RemoteStation(SSHClient):
         
         """
         # Define path to the experiment folder to be put to the remote station
-        if local_path is None:
-            local_path = LOCAL_SCRIPTS_DIR
         if remote_path is None:
             remote_path = self.remote_root_dir
-        local_experiment = os.path.join(local_path, folder)
-        remote_experiment = os.path.join(remote_path, folder)
+        experiment_name = os.path.basename(local_path)
+        remote_experiment = os.path.join(remote_path, experiment_name)
 
         # put experiment folder to remote station
-        self.transfer(path_from=local_experiment, path_to=remote_path, mode="put")
+        self.transfer(path_from=local_path, path_to=remote_path, mode="put")
         
         # put latest modules to experiment folder on the remote station
         for module in modules:
