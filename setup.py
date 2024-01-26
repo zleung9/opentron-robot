@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='auto',
-    version='0.1.1',
+    version='1.2.1',
     description="A platform for controling all the robots in Automat's lat ",
     license='See license',
     packages=find_packages(),
@@ -14,8 +14,6 @@ setup(
         "sqlalchemy"
     ],
     entry_points={ # create scripts and add to sys.PATH
-        'console_scripts': [
-            "run_sdwf = scripts.run_sdwf:main",
-        ],
+        'console_scripts': [],
     },
 )
