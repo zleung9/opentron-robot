@@ -17,7 +17,7 @@
             "labwares": {
                 "1": "opentrons_96_tiprack_1000ul",
                 "2": "automat_2x4wellplate_20ml.json",
-                "3": "", 
+                "3": "automat_2x4wellplate_20ml.json", 
                 "4": "automat_2x4wellplate_20ml.json",
                 "5": "automat_2x4wellplate_20ml.json",
                 "6": "automat_2x4wellplate_20ml.json", 
@@ -36,7 +36,9 @@
             "water_wells": [2],
             "sponge_deck": [3]
         },
-        "Conductivity Meter": {},
+        "Conductivity Meter": {
+            "offset": [0, -0, 0]
+        },
         "SquidStat": {},
         "ChemSpeed": {},
         "Robotic Arm": {}
