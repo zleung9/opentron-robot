@@ -15,7 +15,7 @@ except ModuleNotFoundError:
     from auto.sockets import SocketServer
 
 try:
-    from opentrons import protocol_api
+    from opentrons import protocol_api, types
 except ModuleNotFoundError:
     from auto import protocol_api
 
