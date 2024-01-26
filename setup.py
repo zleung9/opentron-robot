@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='auto',
-    version='1.2.1',
+    version='1.2.2',
     description="A platform for controling all the robots in Automat's lat ",
     license='See license',
     packages=find_packages(),
