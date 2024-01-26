@@ -253,27 +253,6 @@ class OT2(Robot):
 
         # Update the target locations that will have been dispensed
         self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
-            
-    def replace_plate_for_conductivity(self, lot_index, put_back=False):
-        """ Replace the plate for conductivity measurement. The reason to do so is that there is an 
-        offset between the pipette tip and the conductivity meter. The offset is about 10 mm.
-        Parameters
-        ----------
-        lot_index : int
-            The index of the plate to be replaced.
-        put_back : bool
-            If True, replace the plate back to the original slot.
-        """
-        # delete the existing plate
-        del self.protocol.deck[str(lot_index)]
-
-        # load a new plate with offset or put back the original plate 
-        definition = self.config["Robots"]["OT2"]["labwares"][str(lot_index)]
-        if not put_back:
-            definitioin = definition.strip(".json") + "_offset.json"
-        
-        self.lot[lot_index] = self.load_labware(definition, lot_index)
-        print(f"Plate {lot_index} changed to {definitioin}!")
 
 
     def rinse_cond_arm(self, n:int=None):
