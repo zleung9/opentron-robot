@@ -64,3 +64,35 @@ def get_amount_from_recipe(df: pd.DataFrame, total_volume_mL: int = TOTAL_VOLUME
         df_amount = df_amount.loc[:, (df != 0).any(axis=0)]
     
     return df_amount
+
+def parse_input_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Given the input data, generate the data to be used as the input for ot2 control.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        the "ml_mtls" table from database.
+    
+    Returns
+    -------
+    df : pandas.DataFrame
+        The data to be used as the input for ot2 control. Its format is defined in Figure 3 in the proposal.
+    """
+    ...
+
+def parse_output_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Given the output data, generate the data to be uploaded back to database.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The output data from the experiment. Its format should be consistent with the output of `parse_input_data`.
+    
+    Returns
+    -------
+    df : pandas.DataFrame
+        The data to be uploaded back to database. Its format is should be consistent with `measured_cond` table in database.
+    """
+    ...
+
+def parse_metadata(df: pd.DataFrame) -> pd.DataFrame:
+    """"""
+    ...
