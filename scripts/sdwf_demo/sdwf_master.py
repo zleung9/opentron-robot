@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from auto.remote import RemoteStation
 from auto.utils.database import Database
-from auto.utils.data import generate_metadata, get_amount_from_recipe
+from auto.utils.data import parse_input_data, parse_output_data, parse_metadata
 import json
 
 #####
@@ -18,20 +18,22 @@ ot2 = RemoteStation("OT2", execution_mode="ot2", config=config["Remote Stations"
 ot2.connect()
 
 # pull data from database and preprocess
-# db = Database(db="AI_self-driving_workdlow")
-# df_input = get_amount_from_recipe(db.pull(table="ml_mtls"))
-# df_input.to_csv(os.path.join(experiment_path,"experiment.csv"), index=False)
+db = Database(db="test_db")
+df_input = db.pull(table="ml_mtls")
+df_output = db.pull(table="measured_cond_test")
+df_metadata = db.pull(table="OT-2_dispensing")
 
-#Update script to OT2
+df_input = parse_input_data(db.pull(table="ml_mtls"))
+df_input.to_csv(os.path.join(experiment_path,"experiment.csv"), index=False)
+
+#Update script to OT2, run SDWF experiment on OT2 and download result
 ot2.put(experiment_path)
 ot2.work_dir = os.path.join(ot2.remote_root_dir, experiment_name)
-
-# Run SDWF experiment on OT2 and download result
 ot2.execute("make_solutions.py", mode="ot2")
-# ot2.download_data(f"{experiment_name}/experiment.csv")
+ot2.download_data(f"{experiment_name}")
 
-# # Push result to database
-# df_experiment = pd.read_csv(os.path.join(experiment_path,"experiment.csv"))
-# df_output, df_metadata = generate_metadata(df_experiment)
-# Database.push(df_output, table="measured_cond")
-# Database.push(df_metadata, table="metadata")
+# Push result to database
+df_output = parse_output_data(pd.read_csv("experiment.csv"))
+df_metadata = parse_metadata(pd.read_csv("metadata.json"))
+Database.push(df_output, table="measured_cond_test")
+Database.push(df_metadata, table="OT-2_dispensing")
