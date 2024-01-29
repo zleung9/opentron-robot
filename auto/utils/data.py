@@ -22,7 +22,7 @@ def generate_metadata(df):
     df_metadata = df.copy()
     return df_output, df_metadata
 
-def get_amount_from_recipe(df: pd.DataFrame, total_volume_mL: int = TOTAL_VOLUME_mL, 
+def get_amount_from_recipe(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL, 
                            target: str = "Conductivity",
                            drop_empty_columns: bool = False) -> pd.DataFrame:
 
@@ -64,3 +64,8 @@ def get_amount_from_recipe(df: pd.DataFrame, total_volume_mL: int = TOTAL_VOLUME
         df_amount = df_amount.loc[:, (df != 0).any(axis=0)]
     
     return df_amount
+
+def normalize_chemical_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL) -> pd.DataFrame:
+    chem_cols = [c for c in df.colunms if c.startswith('Chemical')]
+    df[chem_cols] = df[chem_cols] / total_volume_mL 
+    return df
