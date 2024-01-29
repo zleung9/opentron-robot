@@ -18,7 +18,7 @@ ot2 = RemoteStation("OT2", execution_mode="ot2", config=config["Remote Stations"
 ot2.connect()
 
 # pull data from database and preprocess
-db = Database(db="AI_self-driving_workdlow")
+db = Database(db="test_db")
 df_input = db.pull(table="ml_mtls")
 df_output = db.pull(table="measured_cond_test")
 df_metadata = db.pull(table="OT-2_dispensing")
@@ -34,6 +34,6 @@ ot2.download_data(f"{experiment_name}")
 
 # Push result to database
 df_output = parse_output_data(pd.read_csv("experiment.csv"))
-df_metadata = parse_metadata(pd.read_csv("experiment.csv"))
+df_metadata = parse_metadata(pd.read_csv("metadata.json"))
 Database.push(df_output, table="measured_cond_test")
 Database.push(df_metadata, table="OT-2_dispensing")
