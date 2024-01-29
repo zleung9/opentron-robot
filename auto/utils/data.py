@@ -94,5 +94,6 @@ def parse_output_data(df: pd.DataFrame) -> pd.DataFrame:
     ...
 
 def parse_metadata(df: pd.DataFrame) -> pd.DataFrame:
-    """"""
+    """Given the ourput metadata as a json, generate the csv file that is consistent with "OT-2_dispensing" table in database. 
+    """
     ...
