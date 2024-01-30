@@ -93,5 +93,4 @@ def parse_metadata(metadata: json) -> pd.DataFrame:
     """Given the ourput metadata as a json, generate the csv file that is consistent with "OT-2_dispensing" table in database. 
     """
     mdf = pd.read_json(metadata)
-    mdf["batch_number"] = get_new_batch_number(source="lab")
     return mdf
