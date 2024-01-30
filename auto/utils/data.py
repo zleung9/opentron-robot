@@ -64,8 +64,3 @@ def get_amount_from_recipe(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL,
         df_amount = df_amount.loc[:, (df != 0).any(axis=0)]
     
     return df_amount
-
-def normalize_chemical_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL) -> pd.DataFrame:
-    chem_cols = [c for c in df.colunms if c.startswith('Chemical')]
-    df[chem_cols] = df[chem_cols] / total_volume_mL 
-    return df

@@ -1,5 +1,8 @@
 import sys
+import os
 import json
+from itertools import product
+import pandas as pd
 sys.path.append("./")
 try:
     from robots import Robot, ConductivityMeter
@@ -12,9 +15,15 @@ except ModuleNotFoundError:
     from auto.sockets import SocketServer
 
 try:
-    from opentrons import protocol_api
+    from opentrons import protocol_api, types
 except ModuleNotFoundError:
     from auto import protocol_api
+
+try:
+    from pump_raspi import raspi_comm
+except:
+    from auto.pump_raspi import raspi_comm
+
 
 class OT2(Robot):
     def __init__(self, protocol:protocol_api.ProtocolContext, config=None):
@@ -24,6 +33,11 @@ class OT2(Robot):
         self.protocol = protocol
         self.lot = {i:None for i in range(1, 12)} # initiate plate 1 to 11
         self.arm = {"left": None, "right": None} # Initiate left and right arm
+        self.formulations = None # Initiate formulations
+        self._source_locations = []
+        self._target_locations = []
+        self._target_locations_dispensed = []
+        self.dispensing_queue = []
         if config:
             self.load_config(config)
 
@@ -44,15 +58,22 @@ class OT2(Robot):
         if definition.endswith(".json"):
             with open(definition, "r") as f:
                 labware = self.protocol.load_labware_from_definition(json.load(f), n)
+        elif not definition: # No labware is placed in that position
+            return None
         else:
             labware = self.protocol.load_labware(definition, n)
         return labware
 
+
     def load_config(self, config) -> None:
         """ Park labwares into slots and mount pipettes onto arms.
         """
-        # Park labwares
+        
         self.config = config
+        cwd = os.path.dirname(__file__)
+        self._formulation_input_path = os.path.join(cwd, "experiment.csv")
+
+        # Park labwares
         config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
         for key, value in config["labwares"].items():
             n = int(key)
@@ -60,6 +81,17 @@ class OT2(Robot):
             if "tiprack" in value:
                 self.tiprack = self.lot[n]
         
+        # Create a list of all possible source locations
+        self._source_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
+            self.config["Robots"]["OT2"]["chemical_wells"], 
+            ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
+        ))
+
+        # Create a list of all possible target locations
+        self._target_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
+            self.config["Robots"]["OT2"]["formula_wells"], 
+            ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
+        ))
 
         # Mount pippetes and conductivity measure
         for side, tip in config["pipettes"].items():
@@ -71,7 +103,6 @@ class OT2(Robot):
                 self.pip_arm = self.arm[side]
 
     
-
     def start_server(self, host="169.254.230.44", port=23):
         self.server = SocketServer(host=host, port=port)
 
@@ -139,114 +170,184 @@ class OT2(Robot):
         self.dispense(volume, self.lot[n][j])
 
 
-    def generate_dispensing_queue(self, m, n, verbose=False):
-        """ Given the target formulations and chemical sources. Create a queue of aspiration/dispensing actions
-        for individual source and target. For instance, for the following chemcials and formulations,        
-            formulations = {
-                "B3": {"Chemical1": 20, "Chemical2": 10},
-                "B4": {"Chemical1": 10, "Chemical2": 20}
-            }
-            chemicals = {
-                "A3": ["Chemical1", 5000],
-                "A4": ["Chemical2", 5000]
-            }
-        It will generate a queue like below:
-            dispensing_queue = [
-                [(2, "A3"), (6, "B3"), 20],
-                [(2, "A3"), (6, "B4"), 10],
-                [(2, "A4"), (6, "B3"), 10],
-                [(2, "A4"), (6, "B4"), 20],
-            ]
+    def load_formulations(self, formula_input_path:str=""):
+        """ Load the formulations from a csv file. 
+        The formulations are stored in `self.formulations`. It contains the following columns:
+        unique_id, locations, Chemical1, Chemical2, ..., Chemical16. 
+        
+        Parameters
+        ----------
+        formula_input_path : str, optional
+            The path to the csv file containing the formulations.
+        
+        Returns
+        -------
+        chemical_names : list
+            A list of chemical names.
+        """
+        df = pd.read_csv(formula_input_path).reset_index(drop=True)
+        chemical_names = [s for s in df.columns if s.startswith("Chemical")]
+        df["location"] = self._target_locations[: len(df)]
+        self.formulations = df.loc[:, ["unique_id", "location"] + chemical_names]
+        self.chemical_names = chemical_names
+    
+
+    def generate_dispensing_queue(
+        self, 
+        formula_input_path:str=None, 
+        volume_limit:float=5000,
+        verbose:bool=False
+    ):
+        """
+        Given the target formulations and chemical sources, create a queue of aspiration/dispensing actions
+        for individual source and target. The generated queue is stored in `self.dispensing_queue`, where each entry contains the source location, target location, and amount.
+        There are at maximum 16 source locations and 16 target locations. The total number of entries in the queue is 16*16=256.
 
         Parameters
         ----------
-        formulations : dict
-        chemicls : dict
-        n : int
-        m: int
+        formula_input_path : str, optional
+            The path to the csv file containing the formulations.
+        volume_limit : float, optional
+            The maximum volume of the source chemical. If the total volume of the source chemical exceeds
+            the limit, an error is raised. The default is 5000 uL.
+        verbose : bool, optional
+            If True, print the queue. The default is False.
+
+        Raises
+        ------
+        ValueError
+            If the total amount of any chemical exceeds the volume limit.
+
+        Examples
+        --------
+        >>> generate_dispensing_queue(formula_input_path='formulations.csv', volume_limit=5000, verbose=True)
+        [(4, 'A1'), (2, 'A1'), 2]
+        [(4, 'A1'), (2, 'A2'), 2]
+        [(4, 'A1'), (2, 'A3'), 2]
+        [(4, 'A1'), (2, 'A4'), 2]
+        [(4, 'A1'), (2, 'B1'), 2]
+        [(4, 'A2'), (2, 'A1'), 3]
+        [(4, 'A2'), (2, 'A2'), 3]
+        [(4, 'A2'), (2, 'A3'), 3]
+        ...
+
         """
-        self.dispensing_queue = []
-        formulations = self.config["Formulations"]
-        chemicals = self.config["Chemicals"]
+        # Read the formulations and get all the chemical names in the formulations
+        if formula_input_path is None:
+            formula_input_path = self._formulation_input_path
+        self.load_formulations(formula_input_path)
+        assert self.chemical_names is not [], "Call 'ot2.load_formulations()' first"
+        # Generate the dispensing queue
+        for i, name in enumerate(self.chemical_names):
+            volume_all = self.formulations[name]
+            # Check if the total volume of the chemical exceeds the limit
+            if volume_all.sum() > volume_limit: 
+                raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
+            source = self._source_locations[i] # The source location of the chemical
+            # Generate the dispensing queue for each chemical
+            for j, volume in volume_all.items():
+                target = self._target_locations[j] # The target location of the chemical
+                self.dispensing_queue.append([source, target, volume])
+                if verbose:
+                    print([name, source, target, volume])
 
-        for c_slot, (name, total_volume) in chemicals.items():
-            total_amount = 0
-            for f_slot, formulation in formulations.items():
-                try:
-                    amount = formulation[name] # only if chemical exists in formulation
-                    total_amount += amount # if chemcial exits in formulation, add to total_amount
-                except:
-                    continue
-                source = (m, c_slot)
-                target = (n, f_slot)
-                self.dispensing_queue.append([source, target, amount])
-            if total_amount >= total_volume:
-                raise ValueError(
-                    f"Need more {name}. Expected: {total_amount:.2f}. Current: {total_volume:.2f}"
-                )
-        if verbose:
-            for l in self.dispensing_queue:
-                print(l)
+        # Update the target locations that will have been dispensed
+        self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
 
-    def replace_plate_for_conductivity(self, lot_index, put_back=False):
-        """ Replace the plate for conductivity measurement. The reason to do so is that there is an 
-        offset between the pipette tip and the conductivity meter. The offset is about 10 mm.
-        Parameters
-        ----------
-        lot_index : int
-            The index of the plate to be replaced.
-        put_back : bool
-            If True, replace the plate back to the original slot.
-        """
-        del self.protocol.deck[str(lot_index)]
 
-        if put_back:
-            new_def = self.config["Robots"]["OT2"]["labwares"][str(lot_index)]
-        else:
-            new_def = self.config["Robots"]["Conductivity Meter"]["labwares"][str(lot_index)]
-
-        self.lot[lot_index] = self.load_labware(new_def, lot_index)
-        print(f"Plate {lot_index} changed to {new_def}!")
-
-    def rinse_cond_arm(self, lot_index:int):
+    def rinse_cond_arm(self, n:int=None):
         """ Rinse the conductivity meter arm. After measuring conductivity for one solution, the
         conductivity meter arm will move to the plate with four water wells. The conductivity meter
         arm will rinse itself in the four wells. In each well, the arm will move up and down for 3
         times.
+        
+        Paramters
+        ---------
+        n : int
+            The index of the plate that contains four water wells.
+        
         """
-        plate = self.lot[lot_index]  # Assuming lot_index is defined elsewhere
+        if not n:
+            n = self.config["Robots"]["OT2"]["water_wells"][0]
 
-        for slot in ["A1", "A2", "A3", "A4"]:
+        self.protocol.max_speeds['x'] = 100
+        for i in ["A1", "A2", "A3", "A4"]:
+            well = self.lot[n][i]
+            self.cond_arm.move_to(self.adjust(well.top(100)))
+            self.sleep(2)
             for _ in range(3):
-                self.cond_arm.move_to(plate[slot].top())
-                self.cond_arm.move_to(plate[slot].bottom(10))
-                self.cond_arm.move_to(plate[slot].bottom(5))
-        
+                self.cond_arm.move_to(self.adjust(well.bottom(48.4)))
+                self.cond_arm.move_to(self.adjust(well.bottom(75)))
+            self.sleep(3)
+                
         print("Conductivity meter arm rinsed.")
+
+
+    def dry_cond_arm(self, n:int=None):
+        """ Dry the conductivity meter arm. After rinsing itself in the four solvent wells, the arm will move to the sponge deck position. It will then trigger the blow dryer and move slowly up and down to dry the probe evenly.
         
+        Paramters
+        ---------
+        n : int
+            The index of the sponge deck.
+        """
+        if not n:
+            n = self.config["Robots"]["OT2"]["sponge_deck"][0]
+        
+        deck = self.lot[n]["A4"] 
+        self.cond_arm.move_to(self.adjust(deck.top(55.5)))
+        self.cond_arm.move_to(self.adjust(deck.top(15.5)))
+        self.cond_arm.move_to(self.adjust(deck.top(93)))
+        raspi_comm.trigger_pump()
+        self.protocol.max_speeds['z'] = 14
+        self.sleep(3.5)
+        self.cond_arm.move_to(self.adjust(deck.top(102)))
+        self.cond_arm.move_to(self.adjust(deck.top(74)))
+        self.cond_arm.move_to(self.adjust(deck.top(93)))
+        self.sleep(3)
+        del self.protocol.max_speeds['z']
+        self.cond_arm.move_to(self.adjust(deck.top(15.5)))
+        self.sleep(1)
 
 
-    def measure_conductivity(self, cond_meter:ConductivityMeter, lot_index:int):
-        """ Measure conductivity of the plate.
+    def adjust(self, location):
+        """ Adjust the location of the well by adding offsets.
+        
+        Parameters
+        ----------
+        location : opentrons.legacy_api.containers.placeable.Placeable
+            The location of the well.
+        
+        Returns
+        -------
+        location : opentrons.legacy_api.containers.placeable.Placeable
+            The adjusted location of the well.
+        """
+        x_off, y_off, z_off = self.config["Robots"]["Conductivity Meter"]["offset"]
+        return location.move(types.Point(x=x_off, y=y_off, z=z_off))
+
+
+    def measure_conductivity(self, cond_meter:ConductivityMeter):
+        """ Measure conductivity of the plate. `adjust` the location of the well for the conductivity meter arm.
         Parameters
         ----------
         cond_meter : ConductivityMeter
             The conductivity meter object.
-        lot_index : int
-            The index of the plate to be measured.
         """
-        self.replace_plate_for_conductivity(lot_index)
-        formulations = self.config["Formulations"]
-        plate = self.lot[lot_index]
-        for slot in formulations:
-            self.cond_arm.move_to(plate[slot].top(50))
-            self.cond_arm.move_to(plate[slot].bottom(20))
+
+        # Measure conductivity for each formulation
+        for _, row in self.formulations.iterrows():
+            n, i = row["location"]
+            well = self.lot[n][i]
+            self.cond_arm.move_to(self.adjust(well.top(50)))
+            self.cond_arm.move_to(self.adjust(well.bottom(20)))
             self.sleep(1)
-            cond_meter.read_cond(slot, name=formulations[slot]["name"], append=True)
-            self.cond_arm.move_to(plate[slot].top(50))
-
-            print(f"Conductivity measured: {slot}!")
-        self.replace_plate_for_conductivity(lot_index, put_back=True)
-
+            cond_meter.read_cond(uid=row["unique_id"], append=True)
+            self.cond_arm.move_to(self.adjust(well.top(50)))
+            print(f"Conductivity measured: {(n, i)}!")
+            self.rinse_cond_arm() # Rinse the arm
+            self.dry_cond_arm() # Dry the arm
+        
+    
 if __name__ == "__main__":
     ot2 = OT2(protocol_api.ProtocolContext())

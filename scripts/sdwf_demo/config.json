@@ -1,0 +1,46 @@
+{
+    "System": {
+        "work_dir": "C:\\Users\\Automat\\Documents\\automation_control\\scripts\\",
+        "experiment_name": "sdwf_demo"
+    },
+    "Remote Stations": {
+        "OT2": {
+            "ssh_key": "C:\\Users\\Automat\\Documents\\automation_control\\.ssh\\ssh_key_OT2_SDWF",
+            "ip": "169.254.230.44",
+            "port": 22,
+            "username": "root",
+            "passphrase": ""
+        }
+    },
+    "Robots": {
+        "OT2": {
+            "labwares": {
+                "1": "opentrons_96_tiprack_1000ul",
+                "2": "automat_2x4wellplate_20ml.json",
+                "3": "automat_2x4wellplate_20ml.json", 
+                "4": "automat_2x4wellplate_20ml.json",
+                "5": "automat_2x4wellplate_20ml.json",
+                "6": "automat_2x4wellplate_20ml.json", 
+                "7": "", 
+                "8": "",
+                "9": "opentrons_96_tiprack_1000ul",
+                "10": "automat_2x4wellplate_50ml.json",
+                "11": "automat_2x4wellplate_50ml.json"
+            },
+            "pipettes": {
+                "left": "conductivity",
+                "right": "p1000_single_gen2"
+            },
+            "chemical_wells": [4, 7],
+            "formula_wells": [5],
+            "water_wells": [2],
+            "sponge_deck": [3]
+        },
+        "Conductivity Meter": {
+            "offset": [0.5, -31, 0]
+        },
+        "SquidStat": {},
+        "ChemSpeed": {},
+        "Robotic Arm": {}
+    }
+}
