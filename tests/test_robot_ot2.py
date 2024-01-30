@@ -13,7 +13,7 @@ class Test_OT2(unittest.TestCase):
     formulation_path = os.path.join(cwd, "test_data", "experiment.csv")
     with open(config_path, "r") as f:
         config = json.load(f)
-
+    
     @patch("auto.ot2.OT2.load_labware")
     def test_generate_dispensing_queue(self, mock_load_labware):
         """Test that the dispensing queue is generated correctly"""
@@ -24,14 +24,13 @@ class Test_OT2(unittest.TestCase):
             volume_limit=5000,
             verbose=False
         )
-
         self.assertEqual(len(ot2.dispensing_queue), 80)
         self.assertEqual(ot2.chemical_names, [f"Chemical{i}" for i in range(1, 17)])
-        self.assertEqual(ot2.formulations.iloc[0]["location"], (2, "A1"))
+        self.assertEqual(ot2.formulations.iloc[0]["location"], (5, "A1"))
         self.assertEqual(ot2.formulations.iloc[0]["unique_id"], 111)
 
 
-    def test_formulation_file_format(self):
+    def test_experiment_file_format(self):
         """Test that the formulation file is in the correct format"""
         df = pd.read_csv(self.formulation_path).reset_index(drop=True)
         columns = list(df.columns)
@@ -41,7 +40,17 @@ class Test_OT2(unittest.TestCase):
         self.assertIn("Temperature", columns)
         self.assertIn("unique_id", columns)
     
-
+    def test_metadata_file_format(self):
+        """Test that the metadata file is in the correct format"""
+        metadata_path = os.path.join(self.cwd, "test_data", "metadata.json")
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+        self.assertIn("created_by", metadata)
+        self.assertIn("start_time", metadata)
+        self.assertIn("end_time", metadata)
+        self.assertIn("associated_log", metadata)
+        self.assertIn("associated_csv", metadata)
+        self.assertIn("comments", metadata)
 
 
 
