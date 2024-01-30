@@ -1,8 +1,12 @@
+import json
 import numpy as np
 import pandas as pd 
+from database import Database
 
+DB = "test_db"
 TOTAL_VOLUME_mL = 12
 FACTOR = 0.001
+db = Database(db=DB)
 
 def generate_metadata(df):
     """Given the output data, generate the data to be uploaded back to database as well as
@@ -65,8 +69,29 @@ def parse_input_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL,
     
     return df_amount
 
-def normalize_chemical_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL) -> pd.DataFrame:
+def get_new_batch_number(source: str = "lab") -> int:
+    assert source in ("lab", "ml")
+    if source == "lab": 
+        lab_data = db.pull(db=DB, table="measured_cond")
+        new_batch_number = lab_data["lab_batch"].max() + 1
+    elif source == "ml":
+        ml_data = db.pull(db=DB, table="ml_mtls")
+        new_batch_number = ml_data["lab_batch"].max() + 1
+   
+    return new_batch_number
+        
+        
+def parse_output_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL) -> pd.DataFrame:
     chem_cols = [c for c in df.colunms if c.startswith('Chemical')]
     df[chem_cols] = df[chem_cols] / total_volume_mL 
+    df = df.rename(columns={"unique_id": "ml_id"})
+    df["lab_batch"] = get_new_batch_number(source="lab")
     return df
 
+
+def parse_metadata(metadata: json) -> pd.DataFrame:
+    """Given the ourput metadata as a json, generate the csv file that is consistent with "OT-2_dispensing" table in database. 
+    """
+    mdf = pd.read_json(metadata)
+    mdf["batch_number"] = get_new_batch_number(source="lab")
+    return mdf
