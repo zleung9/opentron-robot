@@ -72,8 +72,8 @@ def parse_input_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL,
 def get_new_batch_number(source: str = "lab") -> int:
     assert source in ("lab", "ml")
     if source == "lab": 
-        lab_data = db.pull(db=DB, table="measured_cond")
-        new_batch_number = lab_data["lab_batch"].max() + 1
+        lab_data = db.pull(db=DB, table="OT-2_dispensing")
+        new_batch_number = lab_data["experiment_id"].max() + 1
     elif source == "ml":
         ml_data = db.pull(db=DB, table="ml_mtls")
         new_batch_number = ml_data["lab_batch"].max() + 1
