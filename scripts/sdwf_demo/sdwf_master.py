@@ -34,6 +34,6 @@ ot2.download_data(f"{experiment_name}")
 
 # Push result to database
 df_output = parse_output_data(pd.read_csv("experiment.csv"))
-df_metadata = pd.read_json("metadata.json")
+df_metadata = parse_metadata("metadata.json")
 Database.push(df_output, table="measured_cond_test")
 Database.push(df_metadata, table="OT-2_dispensing")
