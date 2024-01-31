@@ -45,5 +45,6 @@ def create_logger(logger_name, log_path=None, append=False, simple_fmt=False):
             )
         )
     logger.addHandler(handler)
+    logger.name = logger_name
 
     return logger
