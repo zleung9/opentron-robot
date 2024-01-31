@@ -11,7 +11,10 @@ setup(
         "paramiko==2.8.1", # higher version yields misleading exception about RSA keys.
         "scp",
         "notebook",
-        "sqlalchemy"
+        "sqlalchemy",
+        "mysql-connector-python",
+        "pandas",
+        "numpy",
     ],
     entry_points={ # create scripts and add to sys.PATH
         'console_scripts': [],
