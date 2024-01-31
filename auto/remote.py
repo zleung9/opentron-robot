@@ -1,4 +1,5 @@
 import os
+import subprocess
 import json
 import shutil
 from datetime import datetime
@@ -21,7 +22,7 @@ class RemoteStation(SSHClient):
     different computers and devices.
     """
 
-    def __init__(self, name, execution_mode="python", config=None):
+    def __init__(self, name, execution_mode="python", config=None, log=False):
         super().__init__()
         self.name = name
         self.scp = None
@@ -29,12 +30,17 @@ class RemoteStation(SSHClient):
         self.work_dir = LOCAL_SCRIPTS_DIR
         self.remote_root_dir = REMOTE_SCRIPTS_DIR
         self.mode = execution_mode
+        self._start_time = ""
+        self._end_time = ""
         if config:
             self._hostname = config["ip"]
             self._ssh_key_path = config["ssh_key"]
             self._port = config["port"]
             self._username = config["username"]
             self._passphrase = config["passphrase"]
+        if log:
+            jobname = f"{name}_{datetime.today().strftime('%Y-%m-%d')}"
+            self.create_logger(jobname)
 
     def create_logger(self, jobname, append=False, simple_fmt=True):
         self.logger = create_logger(
@@ -187,6 +193,7 @@ class RemoteStation(SSHClient):
         stderr : Standard error message of the script.
 
         """
+        self._start_time = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
         # pre-execution logging
         if log: 
             try:
@@ -210,20 +217,45 @@ class RemoteStation(SSHClient):
                 f"cd {self.work_dir}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
                 get_pty=True
             ) # Donot omit "stdin" and "stderr", otherwise "stdout" will not be displayed.
-            
             # post-execution logging
             for line in stdout:
                 print(line.rstrip())
                 if log:
                     self.logger.info(line.rstrip())
-
         except KeyboardInterrupt as e:
             print(f"Interruption detedted: {datetime.today()}")
             self.exec_command("\x03")
             self.close()
             print(f"Interrupted: {datetime.today()}")
+        finally:
+            self._end_time = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+            if log:
+                self.logger.info(f"Execution started at {self._start_time} and ended at {self._end_time}.")
+                self.export_metadata()
 
+    def export_metadata(self, comment:str="") -> dict:
+        """Export metadata to a json file."""
+        # Add date time to the experiment file
+        output_csv = f"experiment_{datetime.today().strftime('%Y-%m-%d')}.csv"
+        subprocess.run([
+            "cp", 
+            os.path.join(self.work_dir, "experiment.csv"), 
+            os.path.join(self.work_dir, output_csv)
+        ])
 
+        metadata = {
+            "created_by": self.name,
+            "start_time": self._start_time,
+            "end_time": self._end_time,
+            "associated_log": f"{self.name}_{datetime.today().strftime('%Y-%m-%d')}.log",
+            "associated_csv": output_csv,
+            "comments": comment
+        }
+        
+        with open("metadata.json", "w") as f:
+            json.dump(metadata, f)
+        
+        return metadata
 
 
 if __name__ == "__main__":

@@ -14,7 +14,11 @@ with open(config_path, "r") as f:
     config = json.load(f)
 
 # Create OT2 remote station and connect to it.
-ot2 = RemoteStation("OT2", execution_mode="ot2", config=config["Remote Stations"]["OT2"])
+ot2 = RemoteStation(
+    name="Automat_Control_SDWF", 
+    execution_mode="ot2", 
+    config=config["Remote Stations"]["OT2"]
+)
 ot2.connect()
 
 # pull data from database and preprocess
