@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd 
-from database import Database
+from auto.utils.database import Database
 
 DB = "test_db"
 TOTAL_VOLUME_mL = 12
