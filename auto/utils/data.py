@@ -3,11 +3,10 @@ import numpy as np
 import pandas as pd 
 from auto.utils.database import Database
 
-DB = "test_db"
+TEST_DB = "test_db"
 TOTAL_VOLUME_mL = 12
-FACTOR = 0.001
+FACTOR = 1000
 METADATA_COLS = ["Temperature", "Time"]
-db = Database(db=DB)
 
 def generate_metadata(df):
     """Given the output data, generate the data to be uploaded back to database as well as
@@ -30,7 +29,8 @@ def generate_metadata(df):
 def parse_input_data(df: pd.DataFrame, 
                      total_volume_mL = TOTAL_VOLUME_mL, 
                      target: str = "Conductivity",
-                     drop_empty_columns: bool = False) -> pd.DataFrame:
+                     drop_empty_columns: bool = False,
+                     composition_id=None) -> pd.DataFrame:
 
     """Convert compositions (percentages) to actual amount in microliters. 
     Parameters
@@ -46,7 +46,10 @@ def parse_input_data(df: pd.DataFrame,
         String communicating target parameter for OT2; default is conductivity
                 
     - drop_empty_columns: bool
-        Drops all zero columns in dataframe; default is False                    
+        Drops all zero columns in dataframe; default is False      
+
+    - composition_id: int
+        Composition id for the experiment; default is None. If None select all rows.              
     
     Returns
     -------
@@ -58,7 +61,12 @@ def parse_input_data(df: pd.DataFrame,
     '''Re-name target column'''
     target = "Conductivity"
     df = df.rename(columns={f"predicted_conductivity": target})
-    
+    df[target] = np.nan # delete the predicted value from the input data
+    if composition_id is not None:
+        df = df.loc[df["Composition_id"] == composition_id]
+        if df.empty:
+            raise ValueError(f"No data found for composition_id: {composition_id}")
+        
     '''Re-Arrange Columns'''
     id_cols = ["unique_id"]
     chem_cols = [c for c in df.columns if c.startswith('Chemical')]
@@ -72,7 +80,9 @@ def parse_input_data(df: pd.DataFrame,
     
     return df_amount
 
-def get_new_batch_number(source: str = "lab") -> int:
+def get_new_batch_number(db=None, source: str = "lab") -> int:
+    if not db:
+        db = Database(db=TEST_DB)
     assert source in ("lab", "ml")
     if source == "lab": 
         lab_data = db.pull(table="OT-2_dispensing")
@@ -84,21 +94,35 @@ def get_new_batch_number(source: str = "lab") -> int:
     return new_batch_number
         
         
-def parse_output_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL, composition_id: int = 1) -> pd.DataFrame:
+def parse_output_data(
+        df: pd.DataFrame, 
+        total_volume_mL = TOTAL_VOLUME_mL, 
+        composition_id: int = 1,
+        batch_number: int = None,
+        db:Database = None
+    ) -> pd.DataFrame:
+    if not db:
+        db = Database(db=TEST_DB)
+    assert batch_number is not None
     chem_cols = [c for c in df.columns if c.startswith('Chemical')]
-    df[chem_cols] = df[chem_cols] / total_volume_mL 
+    total_volume_uL = total_volume_mL * FACTOR
+    df[chem_cols] = df[chem_cols] / total_volume_uL 
     df = df.rename(columns={"unique_id": "ml_id"})
-    df["lab_batch"] = get_new_batch_number(source="lab")
+    df["lab_batch"] = batch_number
     df = df.rename(columns={"Conductivity": "measured_conductivity"})
     df["Composition_id"] = composition_id
-
+    df.drop(columns=["Time"], inplace=True)
     return df
 
 
-def parse_metadata(metadata_path: str) -> pd.DataFrame:
+def parse_metadata(metadata_path: str, db=None) -> pd.DataFrame:
     """Given the ourput metadata as a json, generate the csv file that is consistent with "OT-2_dispensing" table in database. 
     """
-    mdf = pd.DataFrame(json.load(open(metadata_path, "r")), index=[0])
+    if not db:
+        db = Database(db=TEST_DB)
+    metadata = json.load(open(metadata_path, "r"))
+    metadata["experiment_id"] = get_new_batch_number(source="lab", db=db)
+    mdf = pd.DataFrame(metadata, index=[0])
     return mdf
 
 
@@ -113,8 +137,8 @@ def ask_for_composition_id(trial=0):
         trial += 1
         return int(comp_id)
     except:
-        print("Composition_id needs to be an integer, try again!\n")
-        return ask_for_composition_id(trail=trial)
+        print("Composition_id needs to be an integer, try again!\r")
+        return ask_for_composition_id(trial=trial)
 
 
 def generate_random_training_set(

@@ -38,8 +38,8 @@ class Database():
         df.to_sql(
             table, 
             con=self.engine, 
-            if_exists='replace', 
-            index=True,
+            if_exists='append', 
+            index=False,
             chunksize=100, # write 100 rows each time
             dtype={'graph': types.LargeBinary(length=2000000)}
         )
@@ -48,6 +48,7 @@ class Database():
             ### Int future all table structure should be updated locally before pushing to the database.
             self.engine.execute(f"ALTER TABLE `{table}` ADD PRIMARY KEY(`id`);")
             self.engine.execute(f"ALTER TABLE `{table}r` CHANGE `id` `id` BIGINT(20) NOT NULL AUTO_INCREMENT;")
+        
         print(f"Updated {table} table")
 
     def _remove_index(self, data):
