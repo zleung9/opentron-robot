@@ -6,6 +6,7 @@ from auto.utils.database import Database
 DB = "test_db"
 TOTAL_VOLUME_mL = 12
 FACTOR = 0.001
+METADATA_COLS = ["Temperature", "Time"]
 db = Database(db=DB)
 
 def generate_metadata(df):
@@ -26,9 +27,10 @@ def generate_metadata(df):
     df_metadata = df.copy()
     return df_output, df_metadata
 
-def parse_input_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL, 
-                           target: str = "Conductivity",
-                           drop_empty_columns: bool = False) -> pd.DataFrame:
+def parse_input_data(df: pd.DataFrame, 
+                     total_volume_mL = TOTAL_VOLUME_mL, 
+                     target: str = "Conductivity",
+                     drop_empty_columns: bool = False) -> pd.DataFrame:
 
     """Convert compositions (percentages) to actual amount in microliters. 
     Parameters
@@ -54,14 +56,15 @@ def parse_input_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL,
     """
     
     '''Re-name target column'''
-    if target == "Conductvity":
-        df = df.rename({f"measured_conductivity": target})
+    target = "Conductivity"
+    df = df.rename(columns={f"predicted_conductivity": target})
     
     '''Re-Arrange Columns'''
     id_cols = ["unique_id"]
-    chem_cols = [c for c in df.colunms if c.startswith('Chemical')]
-    metadata = [line.rstrip("\n") for line in open("metadata_cols.txt")] # Or is the metadata added by OT2? 
-    df_amount = df[id_cols + chem_cols + list(target) + metadata]
+    chem_cols = [c for c in df.columns if c.startswith('Chemical')]
+    df_amount = df[id_cols + chem_cols + [target]]
+    for c in METADATA_COLS:
+        df_amount[c] = np.nan
     
     df_amount[chem_cols] = df_amount[chem_cols] * (total_volume_mL * FACTOR)
     if drop_empty_columns: 
@@ -72,27 +75,30 @@ def parse_input_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL,
 def get_new_batch_number(source: str = "lab") -> int:
     assert source in ("lab", "ml")
     if source == "lab": 
-        lab_data = db.pull(db=DB, table="OT-2_dispensing")
+        lab_data = db.pull(table="OT-2_dispensing")
         new_batch_number = lab_data["experiment_id"].max() + 1
     elif source == "ml":
-        ml_data = db.pull(db=DB, table="ml_mtls")
+        ml_data = db.pull(table="ml_mtls")
         new_batch_number = ml_data["lab_batch"].max() + 1
    
     return new_batch_number
         
         
-def parse_output_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL) -> pd.DataFrame:
-    chem_cols = [c for c in df.colunms if c.startswith('Chemical')]
+def parse_output_data(df: pd.DataFrame, total_volume_mL = TOTAL_VOLUME_mL, composition_id: int = 1) -> pd.DataFrame:
+    chem_cols = [c for c in df.columns if c.startswith('Chemical')]
     df[chem_cols] = df[chem_cols] / total_volume_mL 
     df = df.rename(columns={"unique_id": "ml_id"})
     df["lab_batch"] = get_new_batch_number(source="lab")
+    df = df.rename(columns={"Conductivity": "measured_conductivity"})
+    df["Composition_id"] = composition_id
+
     return df
 
 
-def parse_metadata(metadata: json) -> pd.DataFrame:
+def parse_metadata(metadata_path: str) -> pd.DataFrame:
     """Given the ourput metadata as a json, generate the csv file that is consistent with "OT-2_dispensing" table in database. 
     """
-    mdf = pd.read_json(metadata)
+    mdf = pd.DataFrame(json.load(open(metadata_path, "r")), index=[0])
     return mdf
 
 
@@ -151,3 +157,4 @@ def generate_random_training_set(
                                  'Chemical15', 'Chemical16', 'Conductivity', "Temperature",
                                  "Time"])
     return df
+
