@@ -20,6 +20,7 @@ class ConductivityMeter(Robot):
         self._time = None 
         self._check = False
         self.result_list = []
+        self.load_config(config)
 
     def load_config(self, config):
         self.config = config
@@ -69,7 +70,6 @@ class ConductivityMeter(Robot):
     def clear_cache(self):
         self.result_list  = []
 
-
     def export_result(self, file_path:str=None, clear_cache=True):
         """Export result to formulation file
         Parameters
@@ -80,7 +80,7 @@ class ConductivityMeter(Robot):
             Clear the cache after exporting the result.
         """
 
-        df = pd.read_csv(self._formulation_input_path, incex_col="unique_id")
+        df = pd.read_csv(self._formulation_input_path, index_col="unique_id")
         for result in self.result_list:
             uid = result["uid"]
             df.loc[uid, "Conductivity"] = result["Conductivity"]
