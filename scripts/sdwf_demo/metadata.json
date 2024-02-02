@@ -1,9 +1,1 @@
-{
-    "created_by": "Automat Control SDWF",
-    "start_time": "2022-10-04 18:09:00",
-    "end_time": "2022-10-04 18:09:00",
-    "associated_log": "2022-10-04_18h08m55s__OT2log.log",
-    "associated_csv": "newexperiment_2022-10-04_18h09m00s.csv",
-    "comments": "This is a test comment",
-    "experiment_id": 101
-}
+{"created_by": "Automat_Control_SDWF", "start_time": "", "end_time": "", "associated_log": "experiment_2024-02-01.log", "associated_csv": "experiment_2024-02-01.csv", "comments": "Another successful run of SDWF experiment on OT2."}
