@@ -37,6 +37,7 @@ class OT2(Robot):
         self._source_locations = []
         self._target_locations = []
         self._target_locations_dispensed = []
+        self._last_source = None
         self.dispensing_queue = []
         if config:
             self.load_config(config)
@@ -164,11 +165,19 @@ class OT2(Robot):
         """
         m, i = source
         n, j = target
+
+        # If the source is different from the last source, change tip
+        if self._last_source is not None and source != self._last_source:
+            self.pip_arm.drop_tip()
+            self.pip_arm.pick_up_tip()
+
         if verbose:
             print(f"Dispensing {volume:.1f} uL from {source} to {target}")
         self.aspirate(volume, self.lot[m][i])
         self.dispense(volume, self.lot[n][j])
 
+        # Update the last source as a reference for the next dispensing action
+        self._last_source = source
 
     def load_formulations(self, formula_input_path:str=""):
         """ Load the formulations from a csv file. 
@@ -340,7 +349,7 @@ class OT2(Robot):
             n, i = row["location"]
             well = self.lot[n][i]
             self.cond_arm.move_to(self.adjust(well.top(50)))
-            self.cond_arm.move_to(self.adjust(well.bottom(20)))
+            self.cond_arm.move_to(self.adjust(well.bottom(49)))
             self.sleep(1)
             cond_meter.read_cond(uid=row["unique_id"], append=True)
             self.cond_arm.move_to(self.adjust(well.top(50)))
