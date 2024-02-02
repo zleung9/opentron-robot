@@ -34,41 +34,31 @@ def main():
     # df_input = generate_random_training_set(num_chemical=10)
     df_input.to_csv(os.path.join(experiment_path,"experiment.csv"), index=False)
 
-    # df_new_recipes = check_new_recipes(comp_id, db=db)
-    # if df_new_recipes.empty():
-    #     print("No new recipes to run")
-    #     return
-
-    # # Create OT2 remote station and connect to it.
-    # ot2 = RemoteStation(
-    #     name="Automat_Control_SDWF", 
-    #     execution_mode="ot2", 
-    #     config=config["Remote Stations"]["OT2"]
-    # )
-    # ot2.connect()
-    # #Update script to OT2, run SDWF experiment on OT2 and download result
-    # ot2.put(experiment_path)
-    # ot2.work_dir = os.path.join(ot2.remote_root_dir, experiment_name)
-    # ot2.execute("make_solutions.py", mode="ot2")
-    # ot2.download_data(f"{experiment_name}")
+    # Create OT2 remote station and connect to it.
+    ot2 = RemoteStation(
+        name="Automat_Control_SDWF", 
+        execution_mode="ot2", 
+        config=config["Remote Stations"]["OT2"]
+    )
+    ot2.connect()
+    #Update script to OT2, run SDWF experiment on OT2 and download result
+    ot2.put(experiment_path)
+    ot2.work_dir = os.path.join(ot2.remote_root_dir, experiment_name)
+    ot2.execute("make_solutions.py", mode="ot2")
+    ot2.download_data(f"{experiment_name}")
+    ot2.disconnect()
+    ot2.export_metadata()
 
 
     # Push result to database
-    df_input["Conductivity"] = 0.1
-    df_input["Temperature"] = 25
-    df_input["Time"] = "2021-07-01 12:00:00"
-    df_input.to_csv(os.path.join(experiment_path,"experiment.csv"), index=False)
-    
-    
+    ot2.export_metadata(comment="Another successful run of SDWF experiment on OT2.")
     df_metadata = parse_metadata("metadata.json", db=db)
-    
     df_output = parse_output_data(
         pd.read_csv("experiment.csv"), 
         composition_id=comp_id, 
         batch_number=df_metadata["experiment_id"].values[0],
         db=db
     )
-    print(df_output)
     db.push(df_metadata, table="OT-2_dispensing")
     db.push(df_output, table="measured_cond")
 
