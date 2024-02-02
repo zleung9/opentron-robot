@@ -22,13 +22,15 @@ class RemoteStation(SSHClient):
     different computers and devices.
     """
 
-    def __init__(self, name, execution_mode="python", config=None, log=False):
+    def __init__(self, name, execution_mode="python", config=None, log=False, experiment_name="experiment"):
         super().__init__()
         self.name = name
         self.scp = None
         self.logger = None
-        self.work_dir = LOCAL_SCRIPTS_DIR
+        self.local_root_dir = LOCAL_SCRIPTS_DIR
         self.remote_root_dir = REMOTE_SCRIPTS_DIR
+        self.experiment_name = experiment_name
+        self.work_dir = os.path.join(self.remote_root_dir, self.experiment_name)
         self.mode = execution_mode
         self._start_time = ""
         self._end_time = ""
@@ -39,8 +41,7 @@ class RemoteStation(SSHClient):
             self._username = config["username"]
             self._passphrase = config["passphrase"]
         if log:
-            jobname = f"{name}_{datetime.today().strftime('%Y-%m-%d')}"
-            self.create_logger(jobname)
+            self.create_logger("experiment")
 
     def create_logger(self, jobname, append=False, simple_fmt=True):
         self.logger = create_logger(
@@ -49,7 +50,6 @@ class RemoteStation(SSHClient):
             append=append,
             simple_fmt=simple_fmt
         )
-
 
     def connect(self):
         """Override the `connect` method in original `SSHClient` class.
@@ -66,8 +66,15 @@ class RemoteStation(SSHClient):
         except:
             raise
         else:
-            self.work_dir = '/data/user_storage/'
+            self.work_dir = self.remote_root_dir + self.experiment_name + "/"
+            # Do not use "os.path.join" because the remote path is in linux format
 
+    def disconnect(self):
+        """Close the connection to the remote station.
+        """
+        self.work_dir = os.path.join(self.local_root_dir, self.experiment_name)
+        self.close()
+        
 
     def transfer(self, path_from=None, path_to=None, mode="put"):
         """Upload a script to the Robot from a local path.
@@ -132,7 +139,7 @@ class RemoteStation(SSHClient):
         
 
     def download_data(self, 
-            data_files:list,
+            data_files:list=["experiment.csv", "metadata.json", "experiment.log"],
             local_path:str=None, 
             remote_path:str=None
         ) -> None:
@@ -155,13 +162,15 @@ class RemoteStation(SSHClient):
         """
         # Define path to the experiment folder to be put to the remote station
         if local_path is None:
-            local_path = LOCAL_SCRIPTS_DIR
+            local_path = self.local_root_dir
         if remote_path is None:
             remote_path = self.remote_root_dir
         
         for f in data_files:
-            local_file = os.path.join(local_path, f)
-            remote_file = os.path.join(remote_path, f)
+            local_file = os.path.join(local_path, self.experiment_name, f)
+            remote_file = self.work_dir + f
+            # Do not use "os.path.join" because the remote path is in linux format
+            
             # put experiment folder to remote station
             try:
                 self.transfer(path_from=remote_file, path_to=local_file, mode="get")
@@ -237,23 +246,28 @@ class RemoteStation(SSHClient):
         """Export metadata to a json file."""
         # Add date time to the experiment file
         output_csv = f"experiment_{datetime.today().strftime('%Y-%m-%d')}.csv"
-        subprocess.run([
-            "cp", 
+        output_log = f"experiment_{datetime.today().strftime('%Y-%m-%d')}.log"
+
+        shutil.copy2(
             os.path.join(self.work_dir, "experiment.csv"), 
             os.path.join(self.work_dir, output_csv)
-        ])
+        )
+        shutil.copy2(
+            os.path.join(self.work_dir, "experiment.log"), 
+            os.path.join(self.work_dir, output_log)
+        )
 
         metadata = {
             "created_by": self.name,
             "start_time": self._start_time,
             "end_time": self._end_time,
-            "associated_log": f"{self.name}_{datetime.today().strftime('%Y-%m-%d')}.log",
+            "associated_log": output_log,
             "associated_csv": output_csv,
             "comments": comment
         }
         
         with open("metadata.json", "w") as f:
-            json.dump(metadata, f)
+            json.dump(metadata, f, indent=4)
         
         return metadata
 
