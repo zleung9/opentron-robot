@@ -26,4 +26,4 @@ var/
 temp/
 data/
 user_storage/
-.vscode/
+.vscode
