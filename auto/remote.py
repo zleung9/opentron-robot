@@ -22,15 +22,16 @@ class RemoteStation(SSHClient):
     different computers and devices.
     """
 
-    def __init__(self, name, execution_mode="python", config=None, log=False, experiment_name="experiment"):
+    def __init__(self, name, execution_mode="python", config=None, log=False, experiment_path=None):
         super().__init__()
         self.name = name
         self.scp = None
         self.logger = None
         self.local_root_dir = LOCAL_SCRIPTS_DIR
         self.remote_root_dir = REMOTE_SCRIPTS_DIR
-        self.experiment_name = experiment_name
-        self.work_dir = os.path.join(self.remote_root_dir, self.experiment_name)
+        self.local_experiment_path = experiment_path
+        self.experiment_name = os.path.basename(experiment_path)
+        self.remote_xperiment_path = os.path.join(self.remote_root_dir, self.experiment_name)
         self.mode = execution_mode
         self._start_time = ""
         self._end_time = ""
@@ -43,10 +44,14 @@ class RemoteStation(SSHClient):
         if log:
             self.create_logger("experiment")
 
+    @property
+    def work_dir(self):
+        return self.remote_xperiment_path
+    
     def create_logger(self, jobname, append=False, simple_fmt=True):
         self.logger = create_logger(
             logger_name=jobname,
-            log_path=os.path.join(self.work_dir, jobname+".log"),
+            log_path=os.path.join(self.remote_xperiment_path, jobname+".log"),
             append=append,
             simple_fmt=simple_fmt
         )
@@ -66,13 +71,13 @@ class RemoteStation(SSHClient):
         except:
             raise
         else:
-            self.work_dir = self.remote_root_dir + self.experiment_name + "/"
+            self.remote_xperiment_path = self.remote_root_dir + self.experiment_name + "/"
             # Do not use "os.path.join" because the remote path is in linux format
 
     def disconnect(self):
         """Close the connection to the remote station.
         """
-        self.work_dir = os.path.join(self.local_root_dir, self.experiment_name)
+        self.remote_xperiment_path = os.path.join(self.local_root_dir, self.experiment_name)
         self.close()
         
 
@@ -96,7 +101,7 @@ class RemoteStation(SSHClient):
 
 
     def put(self, 
-            local_path:str, 
+            local_path:str=None, 
             remote_path:str=None, 
             modules:list=["ot2.py", "robots.py", "sockets.py", "pump_raspi"]
         ) -> None:
@@ -121,6 +126,8 @@ class RemoteStation(SSHClient):
         
         """
         # Define path to the experiment folder to be put to the remote station
+        if local_path is None:
+            local_path = self.local_experiment_path
         if remote_path is None:
             remote_path = self.remote_root_dir
         experiment_name = os.path.basename(local_path)
@@ -162,13 +169,13 @@ class RemoteStation(SSHClient):
         """
         # Define path to the experiment folder to be put to the remote station
         if local_path is None:
-            local_path = self.local_root_dir
+            local_path = self.local_experiment_path
         if remote_path is None:
             remote_path = self.remote_root_dir
         
         for f in data_files:
-            local_file = os.path.join(local_path, self.experiment_name, f)
-            remote_file = self.work_dir + f
+            local_file = os.path.join(local_path, f)
+            remote_file = self.remote_xperiment_path + f
             # Do not use "os.path.join" because the remote path is in linux format
             
             # put experiment folder to remote station
@@ -187,7 +194,7 @@ class RemoteStation(SSHClient):
         Parameters
         ----------
         filename : str
-            The (python) filename to be executed. The file resides in `self.work_dir`.
+            The (python) filename to be executed. The file resides in `self.remote_xperiment_path`.
         log : bool
             If `True` write the output/error messages into the log file also. Default `False`.
         mode : str
@@ -223,7 +230,7 @@ class RemoteStation(SSHClient):
         # Execution
         try:
             stdin, stdout, stderr = self.exec_command( 
-                f"cd {self.work_dir}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
+                f"cd {self.remote_xperiment_path}; pwd; export RUNNING_ON_PI=1; {' '.join(command)}", 
                 get_pty=True
             ) # Donot omit "stdin" and "stderr", otherwise "stdout" will not be displayed.
             # post-execution logging
@@ -247,14 +254,15 @@ class RemoteStation(SSHClient):
         # Add date time to the experiment file
         output_csv = f"experiment_{datetime.today().strftime('%Y-%m-%d')}.csv"
         output_log = f"experiment_{datetime.today().strftime('%Y-%m-%d')}.log"
+        metadata_path = os.path.join(self.local_experiment_path, "metadata.json")
 
         shutil.copy2(
-            os.path.join(self.work_dir, "experiment.csv"), 
-            os.path.join(self.work_dir, output_csv)
+            os.path.join(self.remote_xperiment_path, "experiment.csv"), 
+            os.path.join(self.remote_xperiment_path, output_csv)
         )
         shutil.copy2(
-            os.path.join(self.work_dir, "experiment.log"), 
-            os.path.join(self.work_dir, output_log)
+            os.path.join(self.remote_xperiment_path, "experiment.log"), 
+            os.path.join(self.remote_xperiment_path, output_log)
         )
 
         metadata = {
@@ -266,7 +274,7 @@ class RemoteStation(SSHClient):
             "comments": comment
         }
         
-        with open("metadata.json", "w") as f:
+        with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=4)
         
         return metadata
