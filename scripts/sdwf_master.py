@@ -24,6 +24,18 @@ def main():
     else:
         experiment_path = os.getcwd()
 
+    # Create OT2 remote station and connect to it.
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    ot2 = RemoteStation(
+        name="Automat_Control_SDWF", 
+        execution_mode="ot2", 
+        config=config["Remote Stations"]["OT2"],
+        experiment_path=experiment_path
+    )
+    ot2.connect()
+    print(ot2.work_dir)
+    
     # Ask for composition id
     comp_id = ask_for_composition_id()
 
@@ -37,17 +49,6 @@ def main():
         # Save the experiment input to experiment folder
         df_input.to_csv(os.path.join(experiment_path,"experiment.csv"), index=False)
 
-    # Create OT2 remote station and connect to it.
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    ot2 = RemoteStation(
-        name="Automat_Control_SDWF", 
-        execution_mode="ot2", 
-        config=config["Remote Stations"]["OT2"],
-        experiment_path=experiment_path
-    )
-    ot2.connect()
-    print(ot2.work_dir)
     #Update script to OT2, run SDWF experiment on OT2 and download result
     ot2.put()
     # ot2.execute("make_solutions.py", mode="ot2")

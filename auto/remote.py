@@ -35,8 +35,12 @@ class RemoteStation(SSHClient):
         self.mode = execution_mode
         self._start_time = ""
         self._end_time = ""
-        self._ssh_key_path = os.path.join(ROOT_DIR, ".ssh", "ssh_key_OT2_SDWF")
-        assert os.path.isfile(self._ssh_key_path), "SSH key doesn't exist."
+        self._ssh_key_path = os.environ.get("SSH_OT2_SDWF")
+        assert self._ssh_key_path, \
+            "Please set environment variable 'SSH_OT2_SDWF'. Examples: \n" \
+            "Windows: set SSH_OT2_SDWF=C:\\\\Your\\\\path\\\\to\\\\ot2_ssh_key \n" \
+            "Mac/Unix: export SSH_OT2_SDWF=/your/path/to/ot2_ssh_key\n"
+        assert os.path.isfile(self._ssh_key_path), f"File doesn't exist: {self._ssh_key_path}"
 
         if config:
             self._hostname = config["ip"]
