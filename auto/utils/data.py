@@ -173,7 +173,7 @@ def generate_training_set(
             percentage_composition = np.zeros(total_num_chemical)
             percentage_composition[stock_solution_indices[i] - 1] = 1
         else: # create random recipes
-            percentage_composition = np.random.dirichlet(np.ones(num_chemical), size=1).tolist()[0]
+            percentage_composition = np.random.dirichlet(np.ones(num_chemical), size=1).squeeze()
         volume_composition = list(percentage_composition * total_volume_mL * FACTOR)
         other = [None, None, None]
         row = unique_id + volume_composition + other 
@@ -262,7 +262,7 @@ def get_new_recipes(
             elif int(option) == 2:
                 stock_solution_indices = []
                 num_recipe = input("How many new recipes to generate? [Enter] for default number: 16\n>>")
-                num_recipe = max_num_recipe if int(num_recipe) > max_num_recipe else int(num_recipe)
+                num_recipe = 16 if not num_recipe else min(int(num_recipe), max_num_recipe)
             else:
                 raise ValueError("Exit")
         except:
