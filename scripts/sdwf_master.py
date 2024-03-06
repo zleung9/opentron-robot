@@ -1,5 +1,3 @@
-
-
 import os
 from auto.remote import RemoteStation
 from auto.utils.database import Database
@@ -10,25 +8,21 @@ from auto.utils.data import (
     get_new_recipes
 )
 import json
-import argparse
-
-
-def parse_arguments():
-    """Parse command-line arguments.
-    Returns:
-        args: argparse.Namespace: The parsed command-line arguments.
-    """
-    parser = argparse.ArgumentParser(description='Parse command-line arguments')
-    parser.add_argument('--dir', type=str, help='The path to the experiment directory.', default=os.getcwd())
-    args = parser.parse_args()
-    return args
 
 
 def main():
-    """Main function for running SDWF experiment on OT2."""
-    args = parse_arguments()
-    experiment_path = args.dir
-    config_path = os.path.join(experiment_path, "config.json")
+    """Main function for running SDWF experiment on OT2."""    
+    try:
+        config_path = os.path.join(os.getcwd(), "config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        raise Exception(
+            "Config file not found in the experiment directory.\n"
+            "Please make sure you are in the experiment folder!"
+        )
+    else:
+        experiment_path = os.getcwd()
 
     # Ask for composition id
     comp_id = ask_for_composition_id()

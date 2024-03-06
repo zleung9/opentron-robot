@@ -1,11 +1,6 @@
 {
-    "System": {
-        "work_dir": "C:\\Users\\Automat\\Documents\\automation_control\\scripts\\",
-        "experiment_name": "sdwf_demo"
-    },
     "Remote Stations": {
         "OT2": {
-            "ssh_key": "C:\\Users\\Automat\\Documents\\automation_control\\.ssh\\ssh_key_OT2_SDWF",
             "ip": "169.254.230.44",
             "port": 22,
             "username": "root",

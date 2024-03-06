@@ -35,9 +35,11 @@ class RemoteStation(SSHClient):
         self.mode = execution_mode
         self._start_time = ""
         self._end_time = ""
+        self._ssh_key_path = os.path.join(ROOT_DIR, ".ssh", "ssh_key_OT2_SDWF")
+        assert os.path.isfile(self._ssh_key_path), "SSH key doesn't exist."
+
         if config:
             self._hostname = config["ip"]
-            self._ssh_key_path = config["ssh_key"]
             self._port = config["port"]
             self._username = config["username"]
             self._passphrase = config["passphrase"]
