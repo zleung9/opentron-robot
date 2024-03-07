@@ -38,7 +38,8 @@ class OT2(Robot):
         self._target_locations = []
         self._target_locations_dispensed = []
         self._last_source = None
-        self.dispensing_queue = []
+        self.dispensing_queue = {}
+        self.cover_deck_status = [0, 0] # initialize the tower stack status (empty)
         if config:
             self.load_config(config)
 
@@ -85,9 +86,8 @@ class OT2(Robot):
         # Create a list of all possible source locations
         self._source_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
             self.config["Robots"]["OT2"]["chemical_wells"], 
-            ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
+            ["A1", "A2", "B1", "B2", "A3", "A4", "B3", "B4"]
         ))
-
         # Create a list of all possible target locations
         self._target_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
             self.config["Robots"]["OT2"]["formula_wells"], 
@@ -209,7 +209,8 @@ class OT2(Robot):
     ):
         """
         Given the target formulations and chemical sources, create a queue of aspiration/dispensing actions
-        for individual source and target. The generated queue is stored in `self.dispensing_queue`, where each entry contains the source location, target location, and amount.
+        for individual source and target. The generated queue is stored in dictionary `self.dispensing_queue`. 
+        The keys are block names and the values are blocks of continuous dispensing actions.
         There are at maximum 16 source locations and 16 target locations. The total number of entries in the queue is 16*16=256.
 
         Parameters
@@ -227,17 +228,28 @@ class OT2(Robot):
         ValueError
             If the total amount of any chemical exceeds the volume limit.
 
+        Notes
+        -----
+        The queue is actually a list of lists. Each inner list is a continuous queue meaning no interruption is triggered. Between each inner list, a `move_cover` action is performed to cover the executed source vials.Each inner list contains the source location, target location, and amount.
+            
         Examples
         --------
-        >>> generate_dispensing_queue(formula_input_path='formulations.csv', volume_limit=5000, verbose=True)
-        [(4, 'A1'), (2, 'A1'), 2]
-        [(4, 'A1'), (2, 'A2'), 2]
-        [(4, 'A1'), (2, 'A3'), 2]
-        [(4, 'A1'), (2, 'A4'), 2]
-        [(4, 'A1'), (2, 'B1'), 2]
-        [(4, 'A2'), (2, 'A1'), 3]
-        [(4, 'A2'), (2, 'A2'), 3]
-        [(4, 'A2'), (2, 'A3'), 3]
+        The 'experiment.csv' contains 8 columns (8 chemicals) and 1 row (one solution). The source plate is 4 (A1 throught B4) and the target plate is 2 (A1 only). The following command will generate a dictionary of two fields: "4A" and "4B". Each field contains a list of lists. Each inner list contains the source location, target location, and amount. "4A" and "4B" are the left and right block of plate 4.
+        >>> generate_dispensing_queue(formula_input_path='experiment.csv', volume_limit=5000, verbose=True)
+        {
+            "4A": [
+                [(4, 'A1'), (2, 'A1'), 2],
+                [(4, 'A2'), (2, 'A1'), 2],
+                [(4, 'B1'), (2, 'A1'), 2],
+                [(4, 'B2'), (2, 'A1'), 2]
+            ],
+            "4B": [
+                [(4, 'A3'), (2, 'A1'), 2],
+                [(4, 'A4'), (2, 'A1'), 3],
+                [(4, 'B3'), (2, 'A1'), 3],
+                [(4, 'B4'), (2, 'A1'), 3]
+            ]
+        }
         ...
 
         """
@@ -247,21 +259,56 @@ class OT2(Robot):
         self.load_formulations(formula_input_path)
         assert self.chemical_names is not [], "Call 'ot2.load_formulations()' first"
         # Generate the dispensing queue
+        cont_dispensing_queue = [] # The dispensing queue for each chemical
         for i, name in enumerate(self.chemical_names):
+            source = self._source_locations[i] # The source location of the chemical
             volume_all = self.formulations[name]
             # Check if the total volume of the chemical exceeds the limit
             if volume_all.sum() > volume_limit: 
                 raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
-            source = self._source_locations[i] # The source location of the chemical
             # Generate the dispensing queue for each chemical
             for j, volume in volume_all.items():
                 target = self._target_locations[j] # The target location of the chemical
-                self.dispensing_queue.append([source, target, volume])
+                cont_dispensing_queue.append([source, target, volume])
                 if verbose:
                     print([name, source, target, volume])
-
+            if not ((i+1) % 4):  # add to the queue every 4 chemicals
+                block = source[0] + "A" if source[1]=="B2" else source[0] + "B"
+                self.dispensing_queue.update({block:cont_dispensing_queue}) 
+                cont_dispensing_queue = []  # reset the queue
         # Update the target locations that will have been dispensed
         self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
+
+
+    def _move_cover(self, from_loc, to_loc):
+        """"""
+        if isinstance(from_loc, str):
+            from_loc = types.Point(x=0, y=0, z=0)
+        if isinstance(to_loc, str):
+            to_loc = types.Point(x=0, y=0, z=0)
+        
+        self.pip_arm.move_to(from_loc)
+        self.pip_arm.move_to(from_loc.move(types.Point(x=0, y=0, z=-20)))
+        self.pip_arm.move_to(to_loc)
+        self.pip_arm.move_to(to_loc.move(types.Point(x=0, y=0, z=-20)))
+    
+    def move_cover(self, from_block, to_block):
+        """Move the pipette to cover the source vials.
+        """
+        n = self.config["Robots"]["OT2"]["cover_deck"][0] # plate number for cover deck
+        cover_thickness = 10
+
+        
+        
+        if to_block == f"{n}A":
+            self.cover_deck_status[0] += 1
+        elif to_block == f"{n}B":
+            self.cover_deck_status[1] += 1
+        if from_block == f"{n}A":
+            self.cover_deck_status[0] -= 1
+        elif from_block == f"{n}B":
+            self.cover_deck_status[1] -= 1
+        assert min(self.cover_deck_status) >= 0, "Cover deck is empty."
 
 
     def rinse_cond_arm(self, n:int=None):
