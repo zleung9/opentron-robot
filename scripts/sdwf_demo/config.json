@@ -31,7 +31,11 @@
             "water_wells": [2],
             "sponge_deck": [3],
             "cover_deck": [7],
-            "probe_deck": [10, 11]
+            "probe_deck": [10, 11],
+            "viscous": [
+                [4, "A1"],
+                [8, "B3"]
+            ]
         },
         "Conductivity Meter": {
             "offset": [0.5, -35, 0]
