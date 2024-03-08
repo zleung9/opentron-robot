@@ -3,6 +3,7 @@ import os
 import json
 from itertools import product
 import pandas as pd
+import numpy as np
 sys.path.append("./")
 try:
     from robots import Robot, ConductivityMeter
@@ -78,6 +79,8 @@ class OT2(Robot):
 
         # Park labwares
         config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
+        self.cover_deck_plate_index = config["cover_deck"][0] # plate number for cover deck
+        
         for key, value in config["labwares"].items():
             n = int(key)
             self.lot[n] = self.load_labware(value, n)
@@ -255,13 +258,13 @@ class OT2(Robot):
         The 'experiment.csv' contains 8 columns (8 chemicals) and 1 row (one solution). The source plate is 4 (A1 throught B4) and the target plate is 2 (A1 only). The following command will generate a dictionary of two fields: "4A" and "4B". Each field contains a list of lists. Each inner list contains the source location, target location, and amount. "4A" and "4B" are the left and right block of plate 4.
         >>> generate_dispensing_queue(formula_input_path='experiment.csv', volume_limit=5000, verbose=True)
         {
-            "4A": [
+            [
                 [(4, 'A1'), (2, 'A1'), 2, 1],
                 [(4, 'A2'), (2, 'A1'), 2, 1],
                 [(4, 'B1'), (2, 'A1'), 2, 1],
                 [(4, 'B2'), (2, 'A1'), 2, 1]
             ],
-            "4B": [
+            [
                 [(4, 'A3'), (2, 'A1'), 2, 1],
                 [(4, 'A4'), (2, 'A1'), 3, 1],
                 [(4, 'B3'), (2, 'A1'), 3, 1],
@@ -314,23 +317,65 @@ class OT2(Robot):
         self.pip_arm.move_to(to_loc)
         self.pip_arm.move_to(to_loc.move(types.Point(x=0, y=0, z=-20)))
     
-    def move_cover(self, from_block, to_block):
-        """Move the pipette to cover the source vials.
-        """
-        n = self.config["Robots"]["OT2"]["cover_deck"][0] # plate number for cover deck
-        cover_thickness = 10
 
+    def block_to_location(self, block):
+            """Get the average location of the block.
+            """
+            n, side = block
+            if side == 0:
+                locs = [self.lot[n][i].top() for i in ["A1", "A2", "B1", "B2"]]
+            elif side == 1:
+                locs = [self.lot[n][i].top() for i in ["A3", "A4", "B3", "B4"]]
+            return types.Point(
+                x=sum([loc.x for loc in locs])/4,
+                y=sum([loc.y for loc in locs])/4,
+                z=sum([loc.z for loc in locs])/4
+            )
+
+    def move_cover(self, from_block, to_block, cover_thickness=10):
+        """Move the pipette to cover the source vials.
+        Parameters
+        ----------
+        from_block : tuple(int, int)
+            The source block name. The definition is (plate_index, 0 or 1), where 0 and 1 are the left and right block of the plate.
+        to_block : tuple(int, int)
+            The target block name. The definition is the same as `from_block`.
+        cover_thickness : int, optional
+            The thickness of the cover. The default is 10.s
+        """
+        status = self.cover_deck_status # get the status of the cover deck
+
+        if from_block == "deck":
+            from_block = (self.cover_deck_plate_index, np.argmax(status)) # take from the block with the most covers
+        if to_block == "deck":
+            to_block = (self.cover_deck_plate_index, np.argmin(status)) # move to the block with the least covers
+        assert from_block != to_block, "The source and target blocks are the same."
+        assert isinstance(from_block, tuple) and isinstance(to_block, tuple), "The block name should be a tuple."
         
-        
-        if to_block == f"{n}A":
-            self.cover_deck_status[0] += 1
-        elif to_block == f"{n}B":
-            self.cover_deck_status[1] += 1
-        if from_block == f"{n}A":
-            self.cover_deck_status[0] -= 1
-        elif from_block == f"{n}B":
-            self.cover_deck_status[1] -= 1
-        assert min(self.cover_deck_status) >= 0, "Cover deck is empty."
+        # If it involves the cover deck, update the status and adjust the height where the pipette moves to.
+        if to_block[0] == self.cover_deck_plate_index:
+            if to_block[1] == 0:
+                to_location = types.Point(x=0, y=0, z=status[0]*cover_thickness)
+                status[0] += 1
+            elif to_block[1] == 1:
+                to_location = types.Point(x=0, y=0, z=status[1]*cover_thickness)
+                status[1] += 1    
+        else:
+            to_location = self.block_to_location(to_block)
+
+        if from_block[0] == self.cover_deck_plate_index:
+            if from_block[1] == 0:
+                from_location = types.Point(x=0, y=0, z=status[0]*cover_thickness)
+                status[0] -= 1
+            elif from_block[1] == 1:
+                from_location = types.Point(x=0, y=0, z=status[1]*cover_thickness)
+                status[1] -= 1    
+        else:
+            from_location = self.block_to_location(from_block)
+        assert min(status) >= 0, "Cover deck is empty."
+
+        self._move_cover(from_location, to_location)
+        self.cover_deck_status = status # update the status of the cover deck
 
 
     def rinse_cond_arm(self, n:int=None):
