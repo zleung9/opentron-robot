@@ -20,10 +20,10 @@ def run(protocol: protocol_api.ProtocolContext):
     ot2.pip_arm.tip_racks.append(ot2.tiprack)  # mount tiprack on pipette
     ot2.generate_dispensing_queue(verbose=True)
     ot2.pip_arm.pick_up_tip()
-    # for (source, target, volume) in ot2.dispensing_queue:
-    #     if volume == 0: continue # skip empty dispensing
-    #     ot2.dispense_chemical(source, target, volume, verbose=True) 
-    # ot2.pip_arm.drop_tip()
+    for (source, target, volume, speed_factor) in ot2.dispensing_queue:
+        if volume == 0: continue # skip empty dispensing
+        ot2.dispense_chemical(source, target, volume, speed_factor, verbose=True) 
+    ot2.pip_arm.drop_tip()
     ot2.measure_conductivity(cm) # measure cond and update cond
     cm.export_result()
 

@@ -35,6 +35,7 @@ class OT2(Robot):
         self.arm = {"left": None, "right": None} # Initiate left and right arm
         self.formulations = None # Initiate formulations
         self._source_locations = []
+        self._source_locations_viscous = [] # locations where the source chemical is viscous
         self._target_locations = []
         self._target_locations_dispensed = []
         self._last_source = None
@@ -84,13 +85,14 @@ class OT2(Robot):
         
         # Create a list of all possible source locations
         self._source_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
-            self.config["Robots"]["OT2"]["chemical_wells"], 
+            config["chemical_wells"], 
             ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
         ))
+        self._source_locations_viscous = [tuple(v) for v in config["viscous"]] # viscous sources
 
         # Create a list of all possible target locations
         self._target_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
-            self.config["Robots"]["OT2"]["formula_wells"], 
+            config["formula_wells"], 
             ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
         ))
 
@@ -127,18 +129,21 @@ class OT2(Robot):
         self.protocol.delay(t)
 
 
-    def aspirate(self, volume, location, z=2):
+    def aspirate(self, volume, location, speed_factor=1, z=2):
         """ Pippete will aspirate at `z`mm above the bottom of the well. 
         """
+        self.pip_arm.flow_rate.aspirate = self._aspirate_rate * speed_factor # change the speed of the pipette
         self.pip_arm.aspirate(volume, location.bottom(z=z))
         self.sleep(1)
         self.pip_arm.touch_tip(v_offset=-3)
     
     
-    def dispense(self, volume, location, z=2):
+    def dispense(self, volume, location, speed_factor=1, z=2):
         """ Pippete will dispense at `z`mm above the bottom of the well and push out extra 10 uL. 
         """
+        self.pip_arm.flow_rate.dispense = self._dispense_rate * speed_factor # change the speed of the pipette
         self.pip_arm.dispense(volume, location.bottom(z=z))
+        self.pip_arm.flow_rate.blow_out = self._blow_out_rate * speed_factor
         self.pip_arm.blow_out()
         self.sleep(1)
 
@@ -148,6 +153,7 @@ class OT2(Robot):
             source:tuple=(None,None),  
             target:tuple=(None,None),
             volume:float=0,
+            speed_factor:float=1,
             verbose:bool=False
         )-> None:
         """ Second lowest level of action: take a certain amount of chemical from a slot and 
@@ -162,6 +168,8 @@ class OT2(Robot):
             The location_index tuple of the target. See `source`.
         volume : float
             The amount in uL to be dispsensed.
+        speed_factor : float
+            The speed factor of the pipette. If the source is viscous, the speed factor will be smaller than 1.
         """
         m, i = source
         n, j = target
@@ -173,8 +181,13 @@ class OT2(Robot):
 
         if verbose:
             print(f"Dispensing {volume:.1f} uL from {source} to {target}")
-        self.aspirate(volume, self.lot[m][i])
-        self.dispense(volume, self.lot[n][j])
+        
+        # slow down the z-axis speed for viscous chemicals
+        self.protocol.max_speeds['z'] = 10 if speed_factor < 1 else None 
+        self.aspirate(volume, self.lot[m][i], speed_factor=speed_factor)
+        self.dispense(volume, self.lot[n][j], speed_factor=speed_factor)
+        # reset the z-axis speed
+        self.protocol.max_speeds['z'] = None
 
         # Update the last source as a reference for the next dispensing action
         self._last_source = source
@@ -230,17 +243,21 @@ class OT2(Robot):
         Examples
         --------
         >>> generate_dispensing_queue(formula_input_path='formulations.csv', volume_limit=5000, verbose=True)
-        [(4, 'A1'), (2, 'A1'), 2]
-        [(4, 'A1'), (2, 'A2'), 2]
-        [(4, 'A1'), (2, 'A3'), 2]
-        [(4, 'A1'), (2, 'A4'), 2]
-        [(4, 'A1'), (2, 'B1'), 2]
-        [(4, 'A2'), (2, 'A1'), 3]
-        [(4, 'A2'), (2, 'A2'), 3]
-        [(4, 'A2'), (2, 'A3'), 3]
+        [(4, 'A1'), (2, 'A1'), 2, 1]
+        [(4, 'A1'), (2, 'A2'), 2, 1]
+        [(4, 'A1'), (2, 'A3'), 2, 1]
+        [(4, 'A1'), (2, 'A4'), 2, 1]
+        [(4, 'A1'), (2, 'B1'), 2, 1]
+        [(4, 'A2'), (2, 'A1'), 3, 1]
+        [(4, 'A2'), (2, 'A2'), 3, 1]
+        [(4, 'A2'), (2, 'A3'), 3, 1]
         ...
 
         """
+        # Get the normal speed_rate of the pipette. The actual rate will be multiplied by the speed_factor.
+        self._aspirate_rate = self.pip_arm.flow_rate.aspirate
+        self._dispense_rate = self.pip_arm.flow_rate.dispense
+        self._blow_out_rate = self.pip_arm.flow_rate.blow_out
         # Read the formulations and get all the chemical names in the formulations
         if formula_input_path is None:
             formula_input_path = self._formulation_input_path
@@ -253,12 +270,16 @@ class OT2(Robot):
             if volume_all.sum() > volume_limit: 
                 raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
             source = self._source_locations[i] # The source location of the chemical
+            if source in self._source_locations_viscous:
+                speed_factor = 0.2 # slow down the pipette speed for viscous chemicals
+            else:
+                speed_factor = 1
             # Generate the dispensing queue for each chemical
             for j, volume in volume_all.items():
                 target = self._target_locations[j] # The target location of the chemical
-                self.dispensing_queue.append([source, target, volume])
+                self.dispensing_queue.append([source, target, volume, speed_factor])
                 if verbose:
-                    print([name, source, target, volume])
+                    print([name, source, target, volume, speed_factor])
 
         # Update the target locations that will have been dispensed
         self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
@@ -314,7 +335,7 @@ class OT2(Robot):
         self.cond_arm.move_to(self.adjust(deck.top(74)))
         self.cond_arm.move_to(self.adjust(deck.top(93)))
         self.sleep(3)
-        del self.protocol.max_speeds['z']
+        self.protocol.max_speeds['z'] = None
         self.cond_arm.move_to(self.adjust(deck.top(15.5)))
         self.sleep(1)
 
