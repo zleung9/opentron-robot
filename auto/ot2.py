@@ -104,6 +104,10 @@ class OT2(Robot):
             else:
                 self.arm[side] = self.protocol.load_instrument(tip, side)
                 self.pip_arm = self.arm[side]
+                # Get the normal speed_rate of the pipette. The actual rate will be multiplied by the speed_factor.
+                self._aspirate_rate = self.pip_arm.flow_rate.aspirate
+                self._dispense_rate = self.pip_arm.flow_rate.dispense
+                self._blow_out_rate = self.pip_arm.flow_rate.blow_out
 
     
     def start_server(self, host="169.254.230.44", port=23):
@@ -254,10 +258,6 @@ class OT2(Robot):
         ...
 
         """
-        # Get the normal speed_rate of the pipette. The actual rate will be multiplied by the speed_factor.
-        self._aspirate_rate = self.pip_arm.flow_rate.aspirate
-        self._dispense_rate = self.pip_arm.flow_rate.dispense
-        self._blow_out_rate = self.pip_arm.flow_rate.blow_out
         # Read the formulations and get all the chemical names in the formulations
         if formula_input_path is None:
             formula_input_path = self._formulation_input_path
