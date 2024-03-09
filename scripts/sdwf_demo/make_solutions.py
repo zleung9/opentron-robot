@@ -21,8 +21,10 @@ def run(protocol: protocol_api.ProtocolContext):
     ot2.generate_dispensing_queue(verbose=True)
     ot2.pip_arm.pick_up_tip()
     for sub_queue in ot2.dispensing_queue:
-        source = sub_queue[0][0] # use the first vial to determine which block to move
-        block = (source[0], 0 if "1" in source[1] or "2" in source[1] else 1) # e.g. (1, "a")
+        # get the block name from the first source vial
+        source = sub_queue[0][0] 
+        block = (source[0], 0 if "1" in source[1] or "2" in source[1] else 1) 
+        # cover/uncover and dispense
         ot2.move_cover(block, "deck")
         for source, target, volume, speed_factor in sub_queue:
             if volume == 0: continue # skip empty dispensing
