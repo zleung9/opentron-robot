@@ -34,14 +34,21 @@ class OT2(Robot):
         self.protocol = protocol
         self.lot = {i:None for i in range(1, 12)} # initiate plate 1 to 11
         self.arm = {"left": None, "right": None} # Initiate left and right arm
+        self._formulation_input_path = "" # The path to the csv file containing the formulations
         self.formulations = None # Initiate formulations
-        self._source_locations = []
+        self._source_locations = [] # locations where the source chemical is stored
         self._source_locations_viscous = [] # locations where the source chemical is viscous
-        self._target_locations = []
+        self._target_locations = [] # locations where the target chemical is stored
         self._target_locations_dispensed = []
-        self._last_source = None
-        self.dispensing_queue = {}
+        self._last_source = None # the last source location
+        self.dispensing_queue = [] # the queue of dispensing actions
         self.cover_deck_status = [0, 0] # initialize the tower stack status (empty)
+        self.cover_deck_plate_index = None # the index of the cover deck plate
+        self.cover_thickness = None # the thickness of the cover
+        self.cover_offset = None # the offset of the cover deck w.r.t. top left vial
+        self.cover_deck_0 = None # the left side of the cover deck plate
+        self.cover_deck_1 = None # the right side of the cover deck plate
+        self.config = {} # the configuration of the OT2
         if config:
             self.load_config(config)
 
@@ -61,7 +68,8 @@ class OT2(Robot):
         """
         if definition.endswith(".json"):
             with open(definition, "r") as f:
-                labware = self.protocol.load_labware_from_definition(json.load(f), n)
+                config = json.load(f)
+                labware = self.protocol.load_labware_from_definition(config, n)
         elif not definition: # No labware is placed in that position
             return None
         else:
@@ -72,21 +80,37 @@ class OT2(Robot):
     def load_config(self, config) -> None:
         """ Park labwares into slots and mount pipettes onto arms.
         """
-        
         self.config = config
         cwd = os.path.dirname(__file__)
         self._formulation_input_path = os.path.join(cwd, "experiment.csv")
+        config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
 
         # Park labwares
-        config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
-        self.cover_deck_plate_index = config["cover_deck"][0] # plate number for cover deck
-        
         for key, value in config["labwares"].items():
             n = int(key)
             self.lot[n] = self.load_labware(value, n)
             if "tiprack" in value:
                 self.tiprack = self.lot[n]
+
+        # load the cover deck plate and related locations
+        self.cover_deck_plate_index = config["cover_deck"][0] # plate number for cover deck
+        self.cover_deck_0 = self.lot[self.cover_deck_plate_index]["0"]
+        self.cover_deck_1 = self.lot[self.cover_deck_plate_index]["1"]
+        source_plate_config_json = config["labwares"][str(config["chemical_wells"][0])]
+        with open(source_plate_config_json, "r") as f:
+            config_source = json.load(f)
+            locations = np.array([
+                [config_source["wells"][well]["x"], config_source["wells"][well]["y"]]
+                for well in ["A1", "A2", "B1", "B2"]
+            ])
+            center = locations.mean(axis=0) # center of the left blocks
+            offset = center - locations[0] # offset of the center of left block w.r.t. A1
+        # load the cover thickness
+        with open(config["labwares"][self.cover_deck_plate_index], "r") as f:
+            self.cover_thickness = config["wells"]["0"]["depth"]
         
+        # x, y, z offset of the cover deck
+        self.cover_offset = types.Point(x=offset[0], y=offset[1], z=self.cover_thickness)
         # Create a list of all possible source locations
         self._source_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
             config["chemical_wells"], 
@@ -302,37 +326,39 @@ class OT2(Robot):
                 self.dispensing_queue.update({block:cont_dispensing_queue}) 
                 cont_dispensing_queue = []  # reset the queue
         # Update the target locations that will have been dispensed
-        self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
+        self._target_locations_dispensed = self._target_locations[: len(self.formulations)]  
 
 
-    def _move_cover(self, from_loc, to_loc):
-        """"""
-        if isinstance(from_loc, str):
-            from_loc = types.Point(x=0, y=0, z=0)
-        if isinstance(to_loc, str):
-            to_loc = types.Point(x=0, y=0, z=0)
+    def _block_to_location(self, block, status=None):
+        """Get the average location of the block.
+        Parameters
+        ----------
+        block : tuple(int, int)
+            The block name. The definition is (plate_index, 0 or 1), where 0 and 1 are the left and right block of the plate.
+        status : list[int, int], optional
+            The status of the cover deck. The default is None.
         
-        self.pip_arm.move_to(from_loc)
-        self.pip_arm.move_to(from_loc.move(types.Point(x=0, y=0, z=-20)))
-        self.pip_arm.move_to(to_loc)
-        self.pip_arm.move_to(to_loc.move(types.Point(x=0, y=0, z=-20)))
-    
+        Returns
+        -------
+        loc : opentrons.types.Location
+            The location of the block.
+        """
+        n, side = block
+        # If it involves the cover deck, update the status and adjust the height where the pipette moves to.
+        if status and side == 0:
+            loc = self.cover_deck_0.move(types.Point(x=0, y=0, z=status[0]*self.cover_thickness))
+        elif status and side == 1:
+            loc = self.cover_deck_1.move(types.Point(x=0, y=0, z=status[1]*self.cover_thickness))
+        elif not status and side == 0:
+            loc = self.lot[n]["A1"].move(self.cover_offset)
+        elif not status and side == 1:
+            loc = self.lot[n]["A3"].move(self.cover_offset)
+        else:
+            raise ValueError("The block name is not valid.")
+        return loc
 
-    def block_to_location(self, block):
-            """Get the average location of the block.
-            """
-            n, side = block
-            if side == 0:
-                locs = [self.lot[n][i].top() for i in ["A1", "A2", "B1", "B2"]]
-            elif side == 1:
-                locs = [self.lot[n][i].top() for i in ["A3", "A4", "B3", "B4"]]
-            return types.Point(
-                x=sum([loc.x for loc in locs])/4,
-                y=sum([loc.y for loc in locs])/4,
-                z=sum([loc.z for loc in locs])/4
-            )
 
-    def move_cover(self, from_block, to_block, cover_thickness=10):
+    def move_cover(self, from_block, to_block):
         """Move the pipette to cover the source vials.
         Parameters
         ----------
@@ -340,41 +366,36 @@ class OT2(Robot):
             The source block name. The definition is (plate_index, 0 or 1), where 0 and 1 are the left and right block of the plate.
         to_block : tuple(int, int)
             The target block name. The definition is the same as `from_block`.
-        cover_thickness : int, optional
-            The thickness of the cover. The default is 10.s
         """
         status = self.cover_deck_status # get the status of the cover deck
-
+        
+        # always pick cover from higher side and put cover to lower side
         if from_block == "deck":
-            from_block = (self.cover_deck_plate_index, np.argmax(status)) # take from the block with the most covers
+            from_block = (self.cover_deck_plate_index, np.argmax(status)) 
         if to_block == "deck":
-            to_block = (self.cover_deck_plate_index, np.argmin(status)) # move to the block with the least covers
+            to_block = (self.cover_deck_plate_index, np.argmin(status)) 
         assert from_block != to_block, "The source and target blocks are the same."
         assert isinstance(from_block, tuple) and isinstance(to_block, tuple), "The block name should be a tuple."
         
-        # If it involves the cover deck, update the status and adjust the height where the pipette moves to.
+        # translate the blocks to locations
         if to_block[0] == self.cover_deck_plate_index:
-            if to_block[1] == 0:
-                to_location = types.Point(x=0, y=0, z=status[0]*cover_thickness)
-                status[0] += 1
-            elif to_block[1] == 1:
-                to_location = types.Point(x=0, y=0, z=status[1]*cover_thickness)
-                status[1] += 1    
+            to_location = self._block_to_location(to_block, status=status)
+            status[to_block[1]] += 1   
         else:
-            to_location = self.block_to_location(to_block)
+            to_location = self._block_to_location(to_block)
 
         if from_block[0] == self.cover_deck_plate_index:
-            if from_block[1] == 0:
-                from_location = types.Point(x=0, y=0, z=status[0]*cover_thickness)
-                status[0] -= 1
-            elif from_block[1] == 1:
-                from_location = types.Point(x=0, y=0, z=status[1]*cover_thickness)
-                status[1] -= 1    
+            from_location = self._block_to_location(from_block, status=status)
+            status[from_block[1]] -= 1 
         else:
-            from_location = self.block_to_location(from_block)
+            from_location = self._block_to_location(from_block)
         assert min(status) >= 0, "Cover deck is empty."
 
-        self._move_cover(from_location, to_location)
+        # move the cover around
+        self.pip_arm.move_to(from_location)
+        ot2.pip_arm.pick_up_tip(from_location)
+        self.pip_arm.move_to(to_location)
+        ot2.pip_arm.drop_tip(to_location)
         self.cover_deck_status = status # update the status of the cover deck
 
 
