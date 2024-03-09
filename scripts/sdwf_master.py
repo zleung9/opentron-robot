@@ -25,8 +25,6 @@ def main():
         experiment_path = os.getcwd()
 
     # Create OT2 remote station and connect to it.
-    with open(config_path, "r") as f:
-        config = json.load(f)
     ot2 = RemoteStation(
         name="Automat_Control_SDWF", 
         execution_mode="ot2", 
