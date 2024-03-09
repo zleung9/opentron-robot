@@ -94,20 +94,21 @@ class OT2(Robot):
 
         # load the cover deck plate and related locations
         self.cover_deck_plate_index = config["cover_deck"][0] # plate number for cover deck
-        self.cover_deck_0 = self.lot[self.cover_deck_plate_index]["0"]
-        self.cover_deck_1 = self.lot[self.cover_deck_plate_index]["1"]
+        self.cover_deck_0 = self.lot[self.cover_deck_plate_index]["A1"]
+        self.cover_deck_1 = self.lot[self.cover_deck_plate_index]["A2"]
         source_plate_config_json = config["labwares"][str(config["chemical_wells"][0])]
         with open(source_plate_config_json, "r") as f:
-            config_source = json.load(f)
+            _config = json.load(f)
             locations = np.array([
-                [config_source["wells"][well]["x"], config_source["wells"][well]["y"]]
+                [_config["wells"][well]["x"], _config["wells"][well]["y"]]
                 for well in ["A1", "A2", "B1", "B2"]
             ])
             center = locations.mean(axis=0) # center of the left blocks
             offset = center - locations[0] # offset of the center of left block w.r.t. A1
         # load the cover thickness
-        with open(config["labwares"][self.cover_deck_plate_index], "r") as f:
-            self.cover_thickness = config["wells"]["0"]["depth"]
+        with open(config["labwares"][str(self.cover_deck_plate_index)], "r") as f:
+            _config = json.load(f)
+            self.cover_thickness = _config["wells"]["A1"]["depth"]
         
         # x, y, z offset of the cover deck
         self.cover_offset = types.Point(x=offset[0], y=offset[1], z=self.cover_thickness)
@@ -166,8 +167,12 @@ class OT2(Robot):
         """
         self.pip_arm.flow_rate.aspirate = self._aspirate_rate * speed_factor # change the speed of the pipette
         self.pip_arm.aspirate(volume, location.bottom(z=z))
-        self.sleep(1)
         self.pip_arm.touch_tip(v_offset=-3)
+        if speed_factor >= 1:
+            self.sleep(2.0)
+        else:
+            self.sleep(10)
+
     
     
     def dispense(self, volume, location, speed_factor=1, z=2):
@@ -177,7 +182,10 @@ class OT2(Robot):
         self.pip_arm.dispense(volume, location.bottom(z=z))
         self.pip_arm.flow_rate.blow_out = self._blow_out_rate * speed_factor
         self.pip_arm.blow_out()
-        self.sleep(1)
+        if speed_factor >= 1:
+            self.sleep(2.0)
+        else:
+            self.sleep(10)
 
 
     def dispense_chemical(
@@ -215,11 +223,11 @@ class OT2(Robot):
             print(f"Dispensing {volume:.1f} uL from {source} to {target}")
         
         # slow down the z-axis speed for viscous chemicals
-        self.protocol.max_speeds['z'] = 10 if speed_factor < 1 else None 
+        self.protocol.max_speeds['a'] = 10 if speed_factor < 1 else None 
         self.aspirate(volume, self.lot[m][i], speed_factor=speed_factor)
         self.dispense(volume, self.lot[n][j], speed_factor=speed_factor)
         # reset the z-axis speed
-        self.protocol.max_speeds['z'] = None
+        self.protocol.max_speeds['a'] = None
 
         # Update the last source as a reference for the next dispensing action
         self._last_source = source
@@ -240,7 +248,7 @@ class OT2(Robot):
             A list of chemical names.
         """
         df = pd.read_csv(formula_input_path).reset_index(drop=True)
-        chemical_names = [s for s in df.columns if s.startswith("Chemical")]
+        chemical_names = [s for s in df.columns if "Chemical" in s]
         df["location"] = self._target_locations[: len(df)]
         self.formulations = df.loc[:, ["unique_id", "location"] + chemical_names]
         self.chemical_names = chemical_names
@@ -298,35 +306,39 @@ class OT2(Robot):
         ...
 
         """
+        _dispensing_queue = []
+        _cont_dispensing_queue = [] # The dispensing queue for each chemical
         # Read the formulations and get all the chemical names in the formulations
         if formula_input_path is None:
             formula_input_path = self._formulation_input_path
         self.load_formulations(formula_input_path)
+
         assert self.chemical_names is not [], "Call 'ot2.load_formulations()' first"
         # Generate the dispensing queue
-        cont_dispensing_queue = [] # The dispensing queue for each chemical
         for i, name in enumerate(self.chemical_names):
             volume_all = self.formulations[name]
+            print(volume_all)
             # Check if the total volume of the chemical exceeds the limit
             if volume_all.sum() > volume_limit: 
                 raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
             source = self._source_locations[i] # The source location of the chemical
             if source in self._source_locations_viscous:
-                speed_factor = 0.2 # slow down the pipette speed for viscous chemicals
+                speed_factor = 0.5 # slow down the pipette speed for viscous chemicals
             else:
                 speed_factor = 1
             # Generate the dispensing queue for each chemical
             for j, volume in volume_all.items():
                 target = self._target_locations[j] # The target location of the chemical
-                cont_dispensing_queue.append([source, target, volume, speed_factor])
+                _cont_dispensing_queue.append([source, target, volume, speed_factor])
                 if verbose:
                     print([name, source, target, volume, speed_factor])
+            print("\n")
             if not ((i+1) % 4):  # add to the queue every 4 chemicals
-                block = source[0] + "A" if source[1]=="B2" else source[0] + "B"
-                self.dispensing_queue.update({block:cont_dispensing_queue}) 
-                cont_dispensing_queue = []  # reset the queue
+                _dispensing_queue.append(_cont_dispensing_queue) 
+                _cont_dispensing_queue = []  # reset the queue
         # Update the target locations that will have been dispensed
-        self._target_locations_dispensed = self._target_locations[: len(self.formulations)]  
+        self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
+        self.dispensing_queue = _dispensing_queue
 
 
     def _block_to_location(self, block, status=None):
