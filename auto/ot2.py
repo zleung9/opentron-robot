@@ -34,6 +34,7 @@ class OT2(Robot):
         self.protocol = protocol
         self.lot = {i:None for i in range(1, 12)} # initiate plate 1 to 11
         self.arm = {"left": None, "right": None} # Initiate left and right arm
+        self._has_tip = False # Initiate the tip status: whether the pipette has picked a tip.
         self._formulation_input_path = "" # The path to the csv file containing the formulations
         self.formulations = None # Initiate formulations
         self._source_locations = [] # locations where the source chemical is stored
@@ -161,8 +162,21 @@ class OT2(Robot):
         """Pause for `t` seconds."""
         self.protocol.delay(t)
 
+    def pick_up_tip(self, location=None) -> None:
+        """Pick up a tip from the tiprack.
+        """
+        assert not self._has_tip, "The pipette already has a tip."
+        self.pip_arm.pick_up_tip(location)
+        self._has_tip = True
+    
+    def drop_tip(self, location=None) -> None:
+        """Drop the tip to the waste.
+        """
+        assert self._has_tip, "No tip to drop."
+        self.pip_arm.drop_tip(location)
+        self._has_tip = False
 
-    def aspirate(self, volume, location, speed_factor=1, z=2):
+    def aspirate(self, volume, location, speed_factor=1, z=5):
         """ Pippete will aspirate at `z`mm above the bottom of the well. 
         """
         self.pip_arm.flow_rate.aspirate = self._aspirate_rate * speed_factor # change the speed of the pipette
@@ -175,7 +189,7 @@ class OT2(Robot):
 
     
     
-    def dispense(self, volume, location, speed_factor=1, z=2):
+    def dispense(self, volume, location, speed_factor=1, z=5):
         """ Pippete will dispense at `z`mm above the bottom of the well and push out extra 10 uL. 
         """
         self.pip_arm.flow_rate.dispense = self._dispense_rate * speed_factor # change the speed of the pipette
@@ -196,8 +210,7 @@ class OT2(Robot):
             speed_factor:float=1,
             verbose:bool=False
         )-> None:
-        """ Second lowest level of action: take a certain amount of chemical from a slot and 
-        dispense it to the target slot.
+        """ Second lowest level of action: take a certain amount of chemical from a slot and  dispense it to the target slot. At the end of the queue will always be a dummy action that has a `None` source. This action will be used to drop the tip and finish the dispensing.
         
         Parameters
         ----------
@@ -213,24 +226,34 @@ class OT2(Robot):
         """
         m, i = source
         n, j = target
-
-        # If the source is different from the last source, change tip
-        if self._last_source is not None and source != self._last_source:
-            self.pip_arm.drop_tip()
-            self.pip_arm.pick_up_tip()
+        
+        # Tip handling at the beginning/end and between chemical dispensing.
+        if source == self._last_source: # If the source is the same as the last source, no need to change tip.
+            assert self._has_tip, "The pipette does not have a tip." 
+        else: # If the source is different from the last source, change tip.
+            if self._has_tip: # If the pipette has a tip, drop it.
+                self.drop_tip()
+            if source is not None: # do not pick up a tip at the end of the dispensing
+                self.pick_up_tip()
+            else:
+                return
 
         if verbose:
-            print(f"Dispensing {volume:.1f} uL from {source} to {target}")
+            print(f"Dispensing {volume:.1f} uL from {source} to {target} with speed factor {speed_factor}.")
         
         # slow down the z-axis speed for viscous chemicals
-        self.protocol.max_speeds['a'] = 10 if speed_factor < 1 else None 
+        if speed_factor < 1:
+            self.protocol.max_speeds['a'] = 10
         self.aspirate(volume, self.lot[m][i], speed_factor=speed_factor)
         self.dispense(volume, self.lot[n][j], speed_factor=speed_factor)
-        # reset the z-axis speed
-        self.protocol.max_speeds['a'] = None
-
+        # reset the max z-axis speed
+        try: 
+            del self.protocol.max_speeds['a']
+        except KeyError:
+            pass
         # Update the last source as a reference for the next dispensing action
         self._last_source = source
+
 
     def load_formulations(self, formula_input_path:str=""):
         """ Load the formulations from a csv file. 
@@ -317,7 +340,6 @@ class OT2(Robot):
         # Generate the dispensing queue
         for i, name in enumerate(self.chemical_names):
             volume_all = self.formulations[name]
-            print(volume_all)
             # Check if the total volume of the chemical exceeds the limit
             if volume_all.sum() > volume_limit: 
                 raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
@@ -329,17 +351,24 @@ class OT2(Robot):
             # Generate the dispensing queue for each chemical
             for j, volume in volume_all.items():
                 target = self._target_locations[j] # The target location of the chemical
+                if volume == 0: continue # skip empty volume
                 _cont_dispensing_queue.append([source, target, volume, speed_factor])
-                if verbose:
-                    print([name, source, target, volume, speed_factor])
-            print("\n")
             if not ((i+1) % 4):  # add to the queue every 4 chemicals
-                _dispensing_queue.append(_cont_dispensing_queue) 
+                if _cont_dispensing_queue:
+                    _dispensing_queue.append(_cont_dispensing_queue)
                 _cont_dispensing_queue = []  # reset the queue
+        
+        # Append a last void sub-queue to the queue to indicate the end of the dispensing
+        _dispensing_queue.append([[None, None, 0, 1]]) 
         # Update the target locations that will have been dispensed
         self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
         self.dispensing_queue = _dispensing_queue
 
+        if verbose:
+            for sub_queue in self.dispensing_queue:
+                print("\n")
+                for queue in sub_queue:
+                    print(queue)
 
     def _block_to_location(self, block, status=None):
         """Get the average location of the block.
@@ -357,20 +386,25 @@ class OT2(Robot):
         """
         n, side = block
         # If it involves the cover deck, update the status and adjust the height where the pipette moves to.
-        if status and side == 0:
-            loc = self.cover_deck_0.move(types.Point(x=0, y=0, z=status[0]*self.cover_thickness))
-        elif status and side == 1:
-            loc = self.cover_deck_1.move(types.Point(x=0, y=0, z=status[1]*self.cover_thickness))
-        elif not status and side == 0:
-            loc = self.lot[n]["A1"].move(self.cover_offset)
-        elif not status and side == 1:
-            loc = self.lot[n]["A3"].move(self.cover_offset)
+        if status:
+            if side == 0:
+                loc = self.cover_deck_0.top().move(types.Point(x=0, y=0, z=status[0]*self.cover_thickness))
+            elif side == 1:
+                loc = self.cover_deck_1.top().move(types.Point(x=0, y=0, z=status[1]*self.cover_thickness))
+            else:
+                raise ValueError("The block name is not valid.")
         else:
-            raise ValueError("The block name is not valid.")
+            if side == 0:
+                loc = self.lot[n]["A1"].top().move(self.cover_offset)
+            elif side == 1:
+                loc = self.lot[n]["A3"].top().move(self.cover_offset)
+            else:
+                raise ValueError("The block name is not valid.")
+        
         return loc
 
 
-    def move_cover(self, from_block, to_block):
+    def move_cover(self, from_block, to_block, verbose=False):
         """Move the pipette to cover the source vials.
         Parameters
         ----------
@@ -378,29 +412,30 @@ class OT2(Robot):
             The source block name. The definition is (plate_index, 0 or 1), where 0 and 1 are the left and right block of the plate.
         to_block : tuple(int, int)
             The target block name. The definition is the same as `from_block`.
+        verbose : bool, optional
+            If True, print the movement. The default is False.
         """
+        if self._has_tip: # make sure the tip is dropped before moving the cover
+            self.drop_tip()
+
         status = self.cover_deck_status # get the status of the cover deck
         
         # always pick cover from higher side and put cover to lower side
-        if from_block == "deck":
-            from_block = (self.cover_deck_plate_index, np.argmax(status)) 
-        if to_block == "deck":
-            to_block = (self.cover_deck_plate_index, np.argmin(status)) 
         assert from_block != to_block, "The source and target blocks are the same."
-        assert isinstance(from_block, tuple) and isinstance(to_block, tuple), "The block name should be a tuple."
         
         # translate the blocks to locations
-        if to_block[0] == self.cover_deck_plate_index:
-            to_location = self._block_to_location(to_block, status=status)
-            status[to_block[1]] += 1   
-        else:
-            to_location = self._block_to_location(to_block)
-
-        if from_block[0] == self.cover_deck_plate_index:
+        if from_block == "deck":
+            from_block = (self.cover_deck_plate_index, np.argmax(status)) 
             from_location = self._block_to_location(from_block, status=status)
             status[from_block[1]] -= 1 
         else:
             from_location = self._block_to_location(from_block)
+        if to_block == "deck":
+            to_block = (self.cover_deck_plate_index, np.argmin(status))
+            to_location = self._block_to_location(to_block, status=status)
+            status[to_block[1]] += 1   
+        else:
+            to_location = self._block_to_location(to_block)
         assert min(status) >= 0, "Cover deck is empty."
 
         # move the cover around
@@ -408,6 +443,9 @@ class OT2(Robot):
         ot2.pip_arm.pick_up_tip(from_location)
         self.pip_arm.move_to(to_location)
         ot2.pip_arm.drop_tip(to_location)
+        if verbose:
+            print(f"Cover from {from_block} to {to_block} moved. Deck status: {status}")
+        
         self.cover_deck_status = status # update the status of the cover deck
 
 
