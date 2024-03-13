@@ -34,7 +34,6 @@ def main():
         experiment_path=experiment_path
     )
     ot2.connect()
-    print(ot2.work_dir)
     
     # Ask for composition id
     comp_id = ask_for_composition_id()
@@ -56,16 +55,16 @@ def main():
     ot2.disconnect()
     
     # Parse output data and metadata and push result to database
-    ot2.export_metadata(comment="Another successful run of SDWF experiment on OT2.")
-    df_metadata = parse_metadata(experiment_path, db=db)
-    df_output = parse_output_data(
-        experiment_path, 
-        composition_id=comp_id, 
-        batch_number=df_metadata["experiment_id"].values[0],
-        db=db
-    )
-    db.push(df_metadata, table="OT-2_dispensing")
-    db.push(df_output, table="measured_cond")
+    # ot2.export_metadata(comment="Another successful run of SDWF experiment on OT2.")
+    # df_metadata = parse_metadata(experiment_path, db=db)
+    # df_output = parse_output_data(
+    #     experiment_path, 
+    #     composition_id=comp_id, 
+    #     batch_number=df_metadata["experiment_id"].values[0],
+    #     db=db
+    # )
+    # db.push(df_metadata, table="OT-2_dispensing")
+    # db.push(df_output, table="measured_cond")
 
 
 if __name__ == "__main__":

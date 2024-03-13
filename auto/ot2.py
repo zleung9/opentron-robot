@@ -181,25 +181,23 @@ class OT2(Robot):
         """
         self.pip_arm.flow_rate.aspirate = self._aspirate_rate * speed_factor # change the speed of the pipette
         self.pip_arm.aspirate(volume, location.bottom(z=z))
-        self.pip_arm.touch_tip(v_offset=-3)
-        if speed_factor >= 1:
+        self.sleep(1.0)
+        self.pip_arm.touch_tip(v_offset=-7)
+        if speed_factor < 1:
             self.sleep(2.0)
-        else:
-            self.sleep(10)
+        self.sleep(3.0)
 
     
     
-    def dispense(self, volume, location, speed_factor=1, z=5):
-        """ Pippete will dispense at `z`mm above the bottom of the well and push out extra 10 uL. 
+    def dispense(self, volume, location, speed_factor=1, z=-5):
+        """ Pippete will dispense at `z`mm below the top of the well and push out extra 10 uL. 
         """
         self.pip_arm.flow_rate.dispense = self._dispense_rate * speed_factor # change the speed of the pipette
-        self.pip_arm.dispense(volume, location.bottom(z=z))
-        self.pip_arm.flow_rate.blow_out = self._blow_out_rate * speed_factor
+        self.pip_arm.dispense(volume, location.top(z=z))
+        self.pip_arm.flow_rate.blow_out = self._blow_out_rate / speed_factor
+        self.sleep(2.0)
         self.pip_arm.blow_out()
-        if speed_factor >= 1:
-            self.sleep(2.0)
-        else:
-            self.sleep(10)
+        self.sleep(1.0)
 
 
     def dispense_chemical(
@@ -233,7 +231,7 @@ class OT2(Robot):
         else: # If the source is different from the last source, change tip.
             if self._has_tip: # If the pipette has a tip, drop it.
                 self.drop_tip()
-            if source is not None: # do not pick up a tip at the end of the dispensing
+            if m is not None: # do not pick up a tip at the end of the dispensing
                 self.pick_up_tip()
             else:
                 return
@@ -243,7 +241,7 @@ class OT2(Robot):
         
         # slow down the z-axis speed for viscous chemicals
         if speed_factor < 1:
-            self.protocol.max_speeds['a'] = 10
+            self.protocol.max_speeds['a'] = 60
         self.aspirate(volume, self.lot[m][i], speed_factor=speed_factor)
         self.dispense(volume, self.lot[n][j], speed_factor=speed_factor)
         # reset the max z-axis speed
@@ -359,7 +357,7 @@ class OT2(Robot):
                 _cont_dispensing_queue = []  # reset the queue
         
         # Append a last void sub-queue to the queue to indicate the end of the dispensing
-        _dispensing_queue.append([[None, None, 0, 1]]) 
+        _dispensing_queue.append([[(None, None), (None, None), 0, 1]]) 
         # Update the target locations that will have been dispensed
         self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
         self.dispensing_queue = _dispensing_queue

@@ -25,11 +25,11 @@ def run(protocol: protocol_api.ProtocolContext):
         if source is None:
             print("Dispensing finished...")
             break
-        block = (source[0], 0 if "1" in source[1] or "2" in source[1] else 1) 
-        ot2.move_cover(block, "deck", verbose=True) # uncover the block before dispensing
+        # block = (source[0], 0 if "1" in source[1] or "2" in source[1] else 1) 
+        # ot2.move_cover(block, "deck", verbose=True) # uncover the block before dispensing
         for source, target, volume, speed_factor in sub_queue:
             ot2.dispense_chemical(source, target, volume, speed_factor, verbose=True) 
-        ot2.move_cover("deck", block, verbose=True) # cover the block after dispensing
+        # ot2.move_cover("deck", block, verbose=True) # cover the block after dispensing
 
 
     # ot2.measure_conductivity(cm) # measure cond and update cond
