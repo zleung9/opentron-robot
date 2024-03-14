@@ -123,7 +123,7 @@ class OT2(Robot):
         # Create a list of all possible target locations
         self._target_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
             config["formula_wells"], 
-            ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
+            ["A1", "A2", "B1", "B2", "A3", "A4", "B3", "B4"]
         ))
 
         # Mount pippetes and conductivity measure
