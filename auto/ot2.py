@@ -34,6 +34,7 @@ class OT2(Robot):
         self.protocol = protocol
         self.lot = {i:None for i in range(1, 12)} # initiate plate 1 to 11
         self.arm = {"left": None, "right": None} # Initiate left and right arm
+        self._pip_max_volume = 1000 # The maximum volume allowed for the pipette in uL
         self._has_tip = False # Initiate the tip status: whether the pipette has picked a tip.
         self._formulation_input_path = "" # The path to the csv file containing the formulations
         self.formulations = None # Initiate formulations
@@ -127,13 +128,15 @@ class OT2(Robot):
         ))
 
         # Mount pippetes and conductivity measure
-        for side, tip in config["pipettes"].items():
-            if tip == "conductivity":
-                self.arm[side] = self.protocol.load_instrument("p300_single_gen2", side)
-                self.cond_arm = self.arm[side]
+        for key, value in config["pipettes"].items():
+            if key == "max_volume":
+                self._pip_max_volume = value # the maximum volume of the pipette in uL
+            elif value == "conductivity":
+                self.arm[key] = self.protocol.load_instrument("p300_single_gen2", key)
+                self.cond_arm = self.arm[key]
             else:
-                self.arm[side] = self.protocol.load_instrument(tip, side)
-                self.pip_arm = self.arm[side]
+                self.arm[key] = self.protocol.load_instrument(value, key)
+                self.pip_arm = self.arm[key]
                 # Get the normal speed_rate of the pipette. The actual rate will be multiplied by the speed_factor.
                 self._aspirate_rate = self.pip_arm.flow_rate.aspirate
                 self._dispense_rate = self.pip_arm.flow_rate.dispense
@@ -278,7 +281,7 @@ class OT2(Robot):
     def generate_dispensing_queue(
         self, 
         formula_input_path:str=None, 
-        volume_limit:float=5000,
+        volume_limit:float=40000,
         verbose:bool=False
     ):
         """
@@ -348,13 +351,21 @@ class OT2(Robot):
                 speed_factor = 1
             # Generate the dispensing queue for each chemical
             for j, volume in volume_all.items():
-                target = self._target_locations[j] # The target location of the chemical
                 if volume == 0: continue # skip empty volume
-                _cont_dispensing_queue.append([source, target, volume, speed_factor])
+                target = self._target_locations[j] # The target location of the chemical
+                # If the volume is larger than the max volume of the pipette, divide the volume into smaller volumes
+                _dispensing_volumes = []
+                while volume > self._pip_max_volume:
+                    _dispensing_volumes.append(self._pip_max_volume)
+                    volume -= self._pip_max_volume
+                else:
+                    _dispensing_volumes.append(volume)
+                for volume in _dispensing_volumes:
+                    _cont_dispensing_queue.append([source, target, volume, speed_factor])
             if not ((i+1) % 4):  # add to the queue every 4 chemicals
                 if _cont_dispensing_queue:
                     _dispensing_queue.append(_cont_dispensing_queue)
-                _cont_dispensing_queue = []  # reset the queue
+                _cont_dispensing_queue = []  # reset the sub queue
         
         # Append a last void sub-queue to the queue to indicate the end of the dispensing
         _dispensing_queue.append([[(None, None), (None, None), 0, 1]]) 
