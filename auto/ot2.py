@@ -3,6 +3,7 @@ import os
 import json
 from itertools import product
 import pandas as pd
+import numpy as np
 sys.path.append("./")
 try:
     from robots import Robot, ConductivityMeter
@@ -33,13 +34,22 @@ class OT2(Robot):
         self.protocol = protocol
         self.lot = {i:None for i in range(1, 12)} # initiate plate 1 to 11
         self.arm = {"left": None, "right": None} # Initiate left and right arm
+        self._has_tip = False # Initiate the tip status: whether the pipette has picked a tip.
+        self._formulation_input_path = "" # The path to the csv file containing the formulations
         self.formulations = None # Initiate formulations
-        self._source_locations = []
+        self._source_locations = [] # locations where the source chemical is stored
         self._source_locations_viscous = [] # locations where the source chemical is viscous
-        self._target_locations = []
+        self._target_locations = [] # locations where the target chemical is stored
         self._target_locations_dispensed = []
-        self._last_source = None
-        self.dispensing_queue = []
+        self._last_source = None # the last source location
+        self.dispensing_queue = [] # the queue of dispensing actions
+        self.cover_deck_status = [0, 0] # initialize the tower stack status (empty)
+        self.cover_deck_plate_index = None # the index of the cover deck plate
+        self.cover_thickness = None # the thickness of the cover
+        self.cover_offset = None # the offset of the cover deck w.r.t. top left vial
+        self.cover_deck_0 = None # the left side of the cover deck plate
+        self.cover_deck_1 = None # the right side of the cover deck plate
+        self.config = {} # the configuration of the OT2
         if config:
             self.load_config(config)
 
@@ -59,7 +69,8 @@ class OT2(Robot):
         """
         if definition.endswith(".json"):
             with open(definition, "r") as f:
-                labware = self.protocol.load_labware_from_definition(json.load(f), n)
+                config = json.load(f)
+                labware = self.protocol.load_labware_from_definition(config, n)
         elif not definition: # No labware is placed in that position
             return None
         else:
@@ -70,23 +81,42 @@ class OT2(Robot):
     def load_config(self, config) -> None:
         """ Park labwares into slots and mount pipettes onto arms.
         """
-        
         self.config = config
         cwd = os.path.dirname(__file__)
         self._formulation_input_path = os.path.join(cwd, "experiment.csv")
+        config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
 
         # Park labwares
-        config = config["Robots"]["OT2"] # only take the configuration for OT2 robotics
         for key, value in config["labwares"].items():
             n = int(key)
             self.lot[n] = self.load_labware(value, n)
             if "tiprack" in value:
                 self.tiprack = self.lot[n]
+
+        # load the cover deck plate and related locations
+        self.cover_deck_plate_index = config["cover_deck"][0] # plate number for cover deck
+        self.cover_deck_0 = self.lot[self.cover_deck_plate_index]["A1"]
+        self.cover_deck_1 = self.lot[self.cover_deck_plate_index]["A2"]
+        source_plate_config_json = config["labwares"][str(config["chemical_wells"][0])]
+        with open(source_plate_config_json, "r") as f:
+            _config = json.load(f)
+            locations = np.array([
+                [_config["wells"][well]["x"], _config["wells"][well]["y"]]
+                for well in ["A1", "A2", "B1", "B2"]
+            ])
+            center = locations.mean(axis=0) # center of the left blocks
+            offset = center - locations[0] # offset of the center of left block w.r.t. A1
+        # load the cover thickness
+        with open(config["labwares"][str(self.cover_deck_plate_index)], "r") as f:
+            _config = json.load(f)
+            self.cover_thickness = _config["wells"]["A1"]["depth"]
         
+        # x, y, z offset of the cover deck
+        self.cover_offset = types.Point(x=offset[0], y=offset[1], z=self.cover_thickness)
         # Create a list of all possible source locations
         self._source_locations = list(product( # [(2, "A3"), (2, "A4"), (6, "B3"), (6, "B4"), etc.]
             config["chemical_wells"], 
-            ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]
+            ["A1", "A2", "B1", "B2", "A3", "A4", "B3", "B4"]
         ))
         self._source_locations_viscous = [tuple(v) for v in config["viscous"]] # viscous sources
 
@@ -132,24 +162,42 @@ class OT2(Robot):
         """Pause for `t` seconds."""
         self.protocol.delay(t)
 
+    def pick_up_tip(self, location=None) -> None:
+        """Pick up a tip from the tiprack.
+        """
+        assert not self._has_tip, "The pipette already has a tip."
+        self.pip_arm.pick_up_tip(location)
+        self._has_tip = True
+    
+    def drop_tip(self, location=None) -> None:
+        """Drop the tip to the waste.
+        """
+        assert self._has_tip, "No tip to drop."
+        self.pip_arm.drop_tip(location)
+        self._has_tip = False
 
-    def aspirate(self, volume, location, speed_factor=1, z=2):
+    def aspirate(self, volume, location, speed_factor=1, z=5):
         """ Pippete will aspirate at `z`mm above the bottom of the well. 
         """
         self.pip_arm.flow_rate.aspirate = self._aspirate_rate * speed_factor # change the speed of the pipette
         self.pip_arm.aspirate(volume, location.bottom(z=z))
-        self.sleep(1)
-        self.pip_arm.touch_tip(v_offset=-3)
+        self.sleep(1.0)
+        self.pip_arm.touch_tip(v_offset=-7)
+        if speed_factor < 1:
+            self.sleep(2.0)
+        self.sleep(3.0)
+
     
     
-    def dispense(self, volume, location, speed_factor=1, z=2):
-        """ Pippete will dispense at `z`mm above the bottom of the well and push out extra 10 uL. 
+    def dispense(self, volume, location, speed_factor=1, z=-5):
+        """ Pippete will dispense at `z`mm below the top of the well and push out extra 10 uL. 
         """
         self.pip_arm.flow_rate.dispense = self._dispense_rate * speed_factor # change the speed of the pipette
-        self.pip_arm.dispense(volume, location.bottom(z=z))
-        self.pip_arm.flow_rate.blow_out = self._blow_out_rate * speed_factor
+        self.pip_arm.dispense(volume, location.top(z=z))
+        self.pip_arm.flow_rate.blow_out = self._blow_out_rate / speed_factor
+        self.sleep(2.0)
         self.pip_arm.blow_out()
-        self.sleep(1)
+        self.sleep(1.0)
 
 
     def dispense_chemical(
@@ -160,8 +208,7 @@ class OT2(Robot):
             speed_factor:float=1,
             verbose:bool=False
         )-> None:
-        """ Second lowest level of action: take a certain amount of chemical from a slot and 
-        dispense it to the target slot.
+        """ Second lowest level of action: take a certain amount of chemical from a slot and  dispense it to the target slot. At the end of the queue will always be a dummy action that has a `None` source. This action will be used to drop the tip and finish the dispensing.
         
         Parameters
         ----------
@@ -177,24 +224,34 @@ class OT2(Robot):
         """
         m, i = source
         n, j = target
-
-        # If the source is different from the last source, change tip
-        if self._last_source is not None and source != self._last_source:
-            self.pip_arm.drop_tip()
-            self.pip_arm.pick_up_tip()
+        
+        # Tip handling at the beginning/end and between chemical dispensing.
+        if source == self._last_source: # If the source is the same as the last source, no need to change tip.
+            assert self._has_tip, "The pipette does not have a tip." 
+        else: # If the source is different from the last source, change tip.
+            if self._has_tip: # If the pipette has a tip, drop it.
+                self.drop_tip()
+            if m is not None: # do not pick up a tip at the end of the dispensing
+                self.pick_up_tip()
+            else:
+                return
 
         if verbose:
-            print(f"Dispensing {volume:.1f} uL from {source} to {target}")
+            print(f"Dispensing {volume:.1f} uL from {source} to {target} with speed factor {speed_factor}.")
         
         # slow down the z-axis speed for viscous chemicals
-        self.protocol.max_speeds['z'] = 10 if speed_factor < 1 else None 
+        if speed_factor < 1:
+            self.protocol.max_speeds['a'] = 60
         self.aspirate(volume, self.lot[m][i], speed_factor=speed_factor)
         self.dispense(volume, self.lot[n][j], speed_factor=speed_factor)
-        # reset the z-axis speed
-        self.protocol.max_speeds['z'] = None
-
+        # reset the max z-axis speed
+        try: 
+            del self.protocol.max_speeds['a']
+        except KeyError:
+            pass
         # Update the last source as a reference for the next dispensing action
         self._last_source = source
+
 
     def load_formulations(self, formula_input_path:str=""):
         """ Load the formulations from a csv file. 
@@ -212,7 +269,7 @@ class OT2(Robot):
             A list of chemical names.
         """
         df = pd.read_csv(formula_input_path).reset_index(drop=True)
-        chemical_names = [s for s in df.columns if s.startswith("Chemical")]
+        chemical_names = [s for s in df.columns if "Chemical" in s]
         df["location"] = self._target_locations[: len(df)]
         self.formulations = df.loc[:, ["unique_id", "location"] + chemical_names]
         self.chemical_names = chemical_names
@@ -226,7 +283,8 @@ class OT2(Robot):
     ):
         """
         Given the target formulations and chemical sources, create a queue of aspiration/dispensing actions
-        for individual source and target. The generated queue is stored in `self.dispensing_queue`, where each entry contains the source location, target location, and amount.
+        for individual source and target. The generated queue is stored in dictionary `self.dispensing_queue`. 
+        The keys are block names and the values are blocks of continuous dispensing actions.
         There are at maximum 16 source locations and 16 target locations. The total number of entries in the queue is 16*16=256.
 
         Parameters
@@ -244,24 +302,38 @@ class OT2(Robot):
         ValueError
             If the total amount of any chemical exceeds the volume limit.
 
+        Notes
+        -----
+        The queue is actually a dictionary of lists. Keys are the name of blocks. Each inner list is a continuous queue meaning no interruption is triggered. Between each inner list, a `move_cover` action is performed to cover the executed source vials.Each inner list contains the source location, target location, and amount.
+            
         Examples
         --------
-        >>> generate_dispensing_queue(formula_input_path='formulations.csv', volume_limit=5000, verbose=True)
-        [(4, 'A1'), (2, 'A1'), 2, 1]
-        [(4, 'A1'), (2, 'A2'), 2, 1]
-        [(4, 'A1'), (2, 'A3'), 2, 1]
-        [(4, 'A1'), (2, 'A4'), 2, 1]
-        [(4, 'A1'), (2, 'B1'), 2, 1]
-        [(4, 'A2'), (2, 'A1'), 3, 1]
-        [(4, 'A2'), (2, 'A2'), 3, 1]
-        [(4, 'A2'), (2, 'A3'), 3, 1]
+        The 'experiment.csv' contains 8 columns (8 chemicals) and 1 row (one solution). The source plate is 4 (A1 throught B4) and the target plate is 2 (A1 only). The following command will generate a dictionary of two fields: "4A" and "4B". Each field contains a list of lists. Each inner list contains the source location, target location, and amount. "4A" and "4B" are the left and right block of plate 4.
+        >>> generate_dispensing_queue(formula_input_path='experiment.csv', volume_limit=5000, verbose=True)
+        {
+            [
+                [(4, 'A1'), (2, 'A1'), 2, 1],
+                [(4, 'A2'), (2, 'A1'), 2, 1],
+                [(4, 'B1'), (2, 'A1'), 2, 1],
+                [(4, 'B2'), (2, 'A1'), 2, 1]
+            ],
+            [
+                [(4, 'A3'), (2, 'A1'), 2, 1],
+                [(4, 'A4'), (2, 'A1'), 3, 1],
+                [(4, 'B3'), (2, 'A1'), 3, 1],
+                [(4, 'B4'), (2, 'A1'), 3, 1]
+            ]
+        }
         ...
 
         """
+        _dispensing_queue = []
+        _cont_dispensing_queue = [] # The dispensing queue for each chemical
         # Read the formulations and get all the chemical names in the formulations
         if formula_input_path is None:
             formula_input_path = self._formulation_input_path
         self.load_formulations(formula_input_path)
+
         assert self.chemical_names is not [], "Call 'ot2.load_formulations()' first"
         # Generate the dispensing queue
         for i, name in enumerate(self.chemical_names):
@@ -271,18 +343,108 @@ class OT2(Robot):
                 raise ValueError(f"Volume of {name} exceeds {volume_limit} uL.")
             source = self._source_locations[i] # The source location of the chemical
             if source in self._source_locations_viscous:
-                speed_factor = 0.2 # slow down the pipette speed for viscous chemicals
+                speed_factor = 0.5 # slow down the pipette speed for viscous chemicals
             else:
                 speed_factor = 1
             # Generate the dispensing queue for each chemical
             for j, volume in volume_all.items():
                 target = self._target_locations[j] # The target location of the chemical
-                self.dispensing_queue.append([source, target, volume, speed_factor])
-                if verbose:
-                    print([name, source, target, volume, speed_factor])
-
+                if volume == 0: continue # skip empty volume
+                _cont_dispensing_queue.append([source, target, volume, speed_factor])
+            if not ((i+1) % 4):  # add to the queue every 4 chemicals
+                if _cont_dispensing_queue:
+                    _dispensing_queue.append(_cont_dispensing_queue)
+                _cont_dispensing_queue = []  # reset the queue
+        
+        # Append a last void sub-queue to the queue to indicate the end of the dispensing
+        _dispensing_queue.append([[(None, None), (None, None), 0, 1]]) 
         # Update the target locations that will have been dispensed
         self._target_locations_dispensed = self._target_locations[: len(self.formulations)]
+        self.dispensing_queue = _dispensing_queue
+
+        if verbose:
+            for sub_queue in self.dispensing_queue:
+                print("\n")
+                for queue in sub_queue:
+                    print(queue)
+
+    def _block_to_location(self, block, status=None):
+        """Get the average location of the block.
+        Parameters
+        ----------
+        block : tuple(int, int)
+            The block name. The definition is (plate_index, 0 or 1), where 0 and 1 are the left and right block of the plate.
+        status : list[int, int], optional
+            The status of the cover deck. The default is None.
+        
+        Returns
+        -------
+        loc : opentrons.types.Location
+            The location of the block.
+        """
+        n, side = block
+        # If it involves the cover deck, update the status and adjust the height where the pipette moves to.
+        if status:
+            if side == 0:
+                loc = self.cover_deck_0.top().move(types.Point(x=0, y=0, z=status[0]*self.cover_thickness))
+            elif side == 1:
+                loc = self.cover_deck_1.top().move(types.Point(x=0, y=0, z=status[1]*self.cover_thickness))
+            else:
+                raise ValueError("The block name is not valid.")
+        else:
+            if side == 0:
+                loc = self.lot[n]["A1"].top().move(self.cover_offset)
+            elif side == 1:
+                loc = self.lot[n]["A3"].top().move(self.cover_offset)
+            else:
+                raise ValueError("The block name is not valid.")
+        
+        return loc
+
+
+    def move_cover(self, from_block, to_block, verbose=False):
+        """Move the pipette to cover the source vials.
+        Parameters
+        ----------
+        from_block : tuple(int, int)
+            The source block name. The definition is (plate_index, 0 or 1), where 0 and 1 are the left and right block of the plate.
+        to_block : tuple(int, int)
+            The target block name. The definition is the same as `from_block`.
+        verbose : bool, optional
+            If True, print the movement. The default is False.
+        """
+        if self._has_tip: # make sure the tip is dropped before moving the cover
+            self.drop_tip()
+
+        status = self.cover_deck_status # get the status of the cover deck
+        
+        # always pick cover from higher side and put cover to lower side
+        assert from_block != to_block, "The source and target blocks are the same."
+        
+        # translate the blocks to locations
+        if from_block == "deck":
+            from_block = (self.cover_deck_plate_index, np.argmax(status)) 
+            from_location = self._block_to_location(from_block, status=status)
+            status[from_block[1]] -= 1 
+        else:
+            from_location = self._block_to_location(from_block)
+        if to_block == "deck":
+            to_block = (self.cover_deck_plate_index, np.argmin(status))
+            to_location = self._block_to_location(to_block, status=status)
+            status[to_block[1]] += 1   
+        else:
+            to_location = self._block_to_location(to_block)
+        assert min(status) >= 0, "Cover deck is empty."
+
+        # move the cover around
+        self.pip_arm.move_to(from_location)
+        ot2.pip_arm.pick_up_tip(from_location)
+        self.pip_arm.move_to(to_location)
+        ot2.pip_arm.drop_tip(to_location)
+        if verbose:
+            print(f"Cover from {from_block} to {to_block} moved. Deck status: {status}")
+        
+        self.cover_deck_status = status # update the status of the cover deck
 
 
     def rinse_cond_arm(self, n:int=None):

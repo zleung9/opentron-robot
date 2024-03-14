@@ -32,7 +32,6 @@ def main():
         experiment_path=experiment_path
     )
     ot2.connect()
-    print(ot2.work_dir)
     
     # Ask for composition id
     comp_id = ask_for_composition_id()
@@ -49,7 +48,7 @@ def main():
 
     #Update script to OT2, run SDWF experiment on OT2 and download result
     ot2.put()
-    # ot2.execute("make_solutions.py", mode="ot2")
+    ot2.execute("make_solutions.py", mode="ot2")
     ot2.download_data()
     ot2.disconnect()
     
