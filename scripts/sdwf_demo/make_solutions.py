@@ -32,7 +32,7 @@ def run(protocol: protocol_api.ProtocolContext):
         # ot2.move_cover("deck", block, verbose=True) # cover the block after dispensing
 
 
-    # ot2.measure_conductivity(cm) # measure cond and update cond
+    ot2.measure_conductivity(cm) # measure cond and update cond
     cm.export_result()
 
     print("Demo finished...")

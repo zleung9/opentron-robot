@@ -38,7 +38,7 @@
             ]
         },
         "Conductivity Meter": {
-            "offset": [0.5, -35, 0]
+            "offset": [0.0, -33.0, 0]
         },
         "SquidStat": {},
         "ChemSpeed": {},

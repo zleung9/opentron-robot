@@ -1,1 +1,8 @@
-{"created_by": "Automat_Control_SDWF", "start_time": "", "end_time": "", "associated_log": "experiment_2024-02-01.log", "associated_csv": "experiment_2024-02-01.csv", "comments": "Another successful run of SDWF experiment on OT2."}
+{
+    "created_by": "Automat_Control_SDWF",
+    "start_time": "2024-03-13 17:13:13",
+    "end_time": "2024-03-13 17:16:23",
+    "associated_log": "experiment_2024-03-13.log",
+    "associated_csv": "experiment_2024-03-13.csv",
+    "comments": "Another successful run of SDWF experiment on OT2."
+}
