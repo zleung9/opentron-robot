@@ -33,8 +33,8 @@ class RemoteStation(SSHClient):
         self.experiment_name = os.path.basename(experiment_path)
         self.remote_xperiment_path = os.path.join(self.remote_root_dir, self.experiment_name)
         self.mode = execution_mode
-        self._start_time = ""
-        self._end_time = ""
+        self._start_time = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        self._end_time = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
         self._ssh_key_path = os.environ.get("SSH_OT2_SDWF")
         assert self._ssh_key_path, \
             "Please set environment variable 'SSH_OT2_SDWF'. Examples: \n" \
