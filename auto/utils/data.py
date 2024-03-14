@@ -181,6 +181,9 @@ def generate_training_set(
         other = [None, None, None]
         row = unique_id + volume_composition + other 
         df_list.append(row)
+        if i + 2 == num_recipe: # the last row is a copy of the first row
+            df_list.append(df_list[0])
+            break
     
     df = pd.DataFrame(
         df_list, 
