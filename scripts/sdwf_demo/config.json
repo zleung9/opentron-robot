@@ -1,0 +1,47 @@
+{
+    "Remote Stations": {
+        "OT2": {
+            "ip": "169.254.230.44",
+            "port": 22,
+            "username": "root",
+            "passphrase": ""
+        }
+    },
+    "Robots": {
+        "OT2": {
+            "labwares": {
+                "1": "opentrons_96_tiprack_1000ul",
+                "2": "automat_2x4wellplate_20ml.json",
+                "3": "automat_2x4wellplate_20ml.json", 
+                "4": "automat_2x4wellplate_50ml.json",
+                "5": "automat_2x4wellplate_50ml.json",
+                "6": "automat_2x4wellplate_20ml.json", 
+                "7": "vial_cover_deck.json", 
+                "8": "automat_2x4wellplate_50ml.json",
+                "9": "automat_2x4wellplate_20ml.json",
+                "10": "",
+                "11": ""
+            },
+            "pipettes": {
+                "left": "conductivity",
+                "right": "p1000_single_gen2"
+            },
+            "chemical_wells": [5, 8],
+            "formula_wells": [6, 9],
+            "water_wells": [2],
+            "sponge_deck": [3],
+            "cover_deck": [7],
+            "probe_deck": [10, 11],
+            "viscous": [
+                [5, "A1"],
+                [5, "A2"]
+            ]
+        },
+        "Conductivity Meter": {
+            "offset": [0.0, -33.0, 0]
+        },
+        "SquidStat": {},
+        "ChemSpeed": {},
+        "Robotic Arm": {}
+    }
+}

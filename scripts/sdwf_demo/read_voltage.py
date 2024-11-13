@@ -1,7 +1,7 @@
 import socket
 from time import sleep
 
-HOST = "169.254.1.78"  # Standard loopback interface address (localhost)
+HOST = "169.254.204.106"  # Standard loopback interface address (localhost)
 PORT = 23  # Port to listen on (non-privileged ports are > 1023)
 
 s = socket.socket()

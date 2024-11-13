@@ -1,0 +1,72 @@
+{
+    "ordering": [
+        [
+            "A1"
+        ],
+        [
+            "A2"
+        ]
+    ],
+    "brand": {
+        "brand": "vial_cover_deck",
+        "brandId": [
+            "Automat"
+        ]
+    },
+    "metadata": {
+        "displayName": "Vial_cover_deck",
+        "displayCategory": "tipRack",
+        "displayVolumeUnits": "µL",
+        "tags": []
+    },
+    "dimensions": {
+        "xDimension": 127.76,
+        "yDimension": 85.47,
+        "zDimension": 28
+    },
+    "wells": {
+        "A1": {
+            "depth": 15,
+            "totalLiquidVolume": 1000,
+            "shape": "circular",
+            "diameter": 7.6,
+            "x": 31,
+            "y": 42.66,
+            "z": 13
+        },
+        "A2": {
+            "depth": 15,
+            "totalLiquidVolume": 1000,
+            "shape": "circular",
+            "diameter": 7.6,
+            "x": 96.76,
+            "y": 42.66,
+            "z": 13
+        }
+    },
+    "groups": [
+        {
+            "metadata": {},
+            "wells": [
+                "A1",
+                "A2"
+            ]
+        }
+    ],
+    "parameters": {
+        "format": "irregular",
+        "quirks": [],
+        "isTiprack": true,
+        "tipLength": 15,
+        "isMagneticModuleCompatible": false,
+        "loadName": "vial_cover_deck"
+    },
+    "namespace": "custom_beta",
+    "version": 1,
+    "schemaVersion": 2,
+    "cornerOffsetFromSlot": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    }
+}

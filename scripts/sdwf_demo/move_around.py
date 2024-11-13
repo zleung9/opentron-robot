@@ -34,9 +34,7 @@ def run(protocol: protocol_api.ProtocolContext):
     print("Demo finished...")
 
 if __name__ == "__main__":
-    ot2 = OT2(None)
-    cm = CM()
-    
+    # run(None)
     print("Start")
     for i in range(10):
         time.sleep(1)
